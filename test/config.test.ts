@@ -20,4 +20,21 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...base, DM_POLICY: 'everyone' })).toThrow(/DM_POLICY/);
     expect(() => loadConfig({ ...base, MAX_ROUNDS: '0' })).toThrow(/MAX_ROUNDS/);
   });
+  it('uses all-member replies by default and validates modes and resource limits', () => {
+    expect(loadConfig(base).groupReplyMode).toBe('all');
+    expect(loadConfig({ ...base, GROUP_REPLY_MODE: 'mention' }).groupReplyMode).toBe('mention');
+    expect(() => loadConfig({ ...base, GROUP_REPLY_MODE: 'smart' })).toThrow(/GROUP_REPLY_MODE/);
+    for (const key of ['MAX_CONCURRENT_AI', 'MAX_QUEUE_TOTAL', 'HISTORY_MAX_CHARS', 'AI_TIMEOUT_MS', 'MAX_INPUT_CHARS']) {
+      for (const value of ['0', '-1', '1.5', 'NaN', 'Infinity', '999999999']) {
+        expect(() => loadConfig({ ...base, [key]: value })).toThrow(key);
+      }
+    }
+  });
+  it('rejects nonnumeric identity lists and credentials embedded in endpoints', () => {
+    expect(() => loadConfig({ ...base, ADMIN_TELEGRAM_IDS: ',' })).toThrow(/ADMIN_TELEGRAM_IDS/);
+    expect(() => loadConfig({ ...base, ADMIN_TELEGRAM_IDS: 'Hiếu' })).toThrow(/ADMIN_TELEGRAM_IDS/);
+    expect(() => loadConfig({ ...base, ALLOWED_GROUPS: '@group' })).toThrow(/ALLOWED_GROUPS/);
+    expect(() => loadConfig({ ...base, AI_BASE_URL: 'https://user:password@example.com' })).toThrow(/AI_BASE_URL/);
+    expect(() => loadConfig({ ...base, AI_BASE_URL: 'file:///secret' })).toThrow(/AI_BASE_URL/);
+  });
 });
