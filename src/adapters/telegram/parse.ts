@@ -27,6 +27,20 @@ export function parseTelegramMessage(
       fileName: msg.document.file_name,
     });
   }
+  if (attachments.length === 0 && msg.reply_to_message) {
+    const replyPhoto = msg.reply_to_message.photo;
+    const replyDoc = msg.reply_to_message.document;
+    if (replyPhoto && replyPhoto.length > 0) {
+      attachments.push({ kind: 'photo', fileId: replyPhoto[replyPhoto.length - 1].file_id });
+    } else if (replyDoc && replyDoc.mime_type?.startsWith('image/')) {
+      attachments.push({
+        kind: 'document',
+        fileId: replyDoc.file_id,
+        mimeType: replyDoc.mime_type,
+        fileName: replyDoc.file_name,
+      });
+    }
+  }
 
   let mentionsBot = false;
 

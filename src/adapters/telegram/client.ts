@@ -1,6 +1,6 @@
 import { Bot, RateLimiter, TelegramApiError, type Api, type SendMessageParams } from 'node-telegram-bot-api';
 import type { Config } from '../../config.js';
-import type { IncomingMessage } from '../../types.js';
+import type { FileAttachment, IncomingMessage } from '../../types.js';
 import { parseTelegramMessage } from './parse.js';
 import { splitMessage } from './split.js';
 
@@ -72,11 +72,42 @@ export function createTelegram(
     send(msg: IncomingMessage, text: string, signal?: AbortSignal) {
       return sender(msg, text, signal ? AbortSignal.any([signal, lifecycle.signal]) : lifecycle.signal);
     },
+    notify(threadId: string, text: string, topicId?: number) {
+      const synthetic: IncomingMessage = {
+        threadId,
+        topicId,
+        senderId: '0',
+        text: '',
+        isGroup: threadId.startsWith('-'),
+        msgId: `${threadId}:0`,
+        mentionsBot: false,
+      };
+      return sender(synthetic, text, lifecycle.signal);
+    },
     async typing(msg: IncomingMessage, signal: AbortSignal) {
       await bot.api.sendChatAction({
         chat_id: msg.threadId, action: 'typing',
         ...(msg.topicId !== undefined ? { message_thread_id: msg.topicId } : {}),
       }, signal);
+    },
+    async downloadImage(attachment: FileAttachment, signal?: AbortSignal): Promise<string | null> {
+      const isImage = attachment.kind === 'photo'
+        || (attachment.kind === 'document' && Boolean(attachment.mimeType?.startsWith('image/')));
+      if (!isImage) return null;
+      const combined = signal ? AbortSignal.any([signal, lifecycle.signal]) : lifecycle.signal;
+      const file = await bot.api.getFile({ file_id: attachment.fileId }, combined);
+      if (!file.file_path) return null;
+      if (file.file_size && file.file_size > 15 * 1024 * 1024) {
+        throw new Error('Image file too large');
+      }
+      const url = `https://api.telegram.org/file/bot${cfg.telegramToken}/${file.file_path}`;
+      const res = await fetch(url, { signal: combined });
+      if (!res.ok) throw new Error(`Telegram file download failed: ${res.status}`);
+      const buf = Buffer.from(await res.arrayBuffer());
+      const ext = file.file_path.split('.').pop()?.toLowerCase();
+      const mime = attachment.mimeType
+        ?? (ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : 'image/jpeg');
+      return `data:${mime};base64,${buf.toString('base64')}`;
     },
     async start(onMessage: (msg: IncomingMessage) => Promise<void>): Promise<void> {
       lifecycle.signal.throwIfAborted();
@@ -96,11 +127,16 @@ export function createTelegram(
         if (message) void onMessage(message).catch((error) => log(clean(String(error))));
       });
       await bot.api.setMyCommands({ commands: [
-        { command: 'help', description: 'Hướng dẫn sử dụng Bot Hiếu' },
+        { command: 'help', description: 'Hướng dẫn sử dụng Bekane Bot' },
+        { command: 'memories', description: 'Xem các ghi nhớ của bot trong cuộc trò chuyện' },
+        { command: 'reminders', description: 'Xem danh sách lịch hẹn nhắc việc' },
+        { command: 'watches', description: 'Xem danh sách trang web đang giám sát' },
         { command: 'stop', description: 'Dừng câu hỏi của bạn trong cuộc trò chuyện này' },
+        { command: 'status', description: '[Admin] Xem trạng thái hệ thống & token' },
+        { command: 'id', description: '[Admin] Xem User ID, Chat ID và Topic ID' },
       ] });
       lifecycle.signal.throwIfAborted();
-      log('Bot Hiếu đã kết nối Telegram, bắt đầu nhận tin nhắn.');
+      log('Bekane Bot đã kết nối Telegram, bắt đầu nhận tin nhắn.');
       await bot.startPolling(undefined, {
         allowedUpdates: ['message'], maxConflictRetries: 0,
         onError: (error) => log(clean(`Telegram polling: ${String(error)}`)),

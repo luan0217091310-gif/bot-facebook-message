@@ -1,6 +1,7 @@
 {
-  "name": "bothieu",
-  "version": "0.1.0",
+  "name": "bekane-telegram-ai-agent",
+  "version": "1.0.0",
+  "description": "Bekane Bot — Telegram AI Agent đa năng (Multimodal Vision, Tool Calling, Scoped Memory, Web Search, Reminders & Website Watcher) của Phùng Hữu Luân",
   "private": true,
   "type": "module",
   "engines": {

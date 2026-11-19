@@ -1,163 +1,246 @@
-# Bot Hiếu — Telegram AI cho nhóm
+# 🤖 Bekane Bot — Telegram AI Agent Đa Năng & Chuyên Sâu
 
-Bot tự trả lời tin nhắn văn bản và chú thích ảnh/tài liệu của mọi thành viên trong những nhóm được cho phép. Không cần @tag khi dùng chế độ mặc định `all`.
+> **Tác giả / Chủ sở hữu:** **Phùng Hữu Luân** (`@bekane_bot`)  
+> **Repository:** [github.com/luan0217091310-gif/setup-bot-tele](https://github.com/luan0217091310-gif/setup-bot-tele)  
+> **Kiến trúc:** 5-Layer Industrial AI Agent (TypeScript • Node.js >=22 • `node-telegram-bot-api` v2 • OpenAI / Google Gemini Multimodal SDK • `vitest`)
 
-Mã dùng TypeScript, Node.js >=22, `node-telegram-bot-api` **v2** và SDK `openai`. Không dùng API khởi tạo `new TelegramBot(...)` của thư viện Telegram v1.
+**Bekane Bot** không phải là một chatbot hỏi-đáp kịch bản thông thường, mà là một **AI Agent cá nhân & trợ lý nhóm có nhận thức, thị giác máy tính (Multimodal Vision), hệ thống trí nhớ phân tầng và vòng lặp tự chủ gọi công cụ (Tool-Calling Agentic Loop)**.
 
-## Chạy trên Windows
+---
 
-Mở terminal tại thư mục dự án. Các lệnh dùng `npm.cmd` để tránh lỗi PowerShell chặn `npm.ps1`.
+## ✨ Tính năng nổi bật
+
+### 1. 🖼️ Thị giác AI: Xem, Phân tích & Đánh giá Hình ảnh (Multimodal Vision)
+- **Gửi ảnh trực tiếp** (có hoặc không kèm chú thích) hoặc **Reply (trả lời) vào bất kỳ bức ảnh nào** trong đoạn chat để nhờ bot xem và phân tích.
+- **Đánh giá chuyên sâu:** Nhận xét bố cục, ánh sáng, màu sắc, thẩm mỹ ảnh chụp, đọc chữ trong ảnh (OCR), giải bài tập, review giao diện code/thiết kế, hoặc bình luận meme hài hước như một người bạn thân.
+
+### 2. 🛠️ Vòng lặp Suy luận & 11 Công cụ Tự chủ (Agentic Tool Calling)
+Bot tự động suy luận và kết hợp các công cụ trong tối đa `MAX_ROUNDS` bước mỗi lượt:
+
+| Công cụ (Tool) | Quyền hạn | Chức năng chi tiết |
+| :--- | :---: | :--- |
+| `get_current_time` | Public | Lấy chính xác thứ, ngày, tháng, năm và giờ Việt Nam (`Asia/Ho_Chi_Minh`). |
+| `web_search` | Public | Tìm kiếm Internet thời gian thực (hỗ trợ **Tavily API** có RAM cache 10 phút + **chế độ tìm kiếm tự động không cần API key** qua DuckDuckGo). |
+| `fetch_url` | Public | Đọc và tóm tắt nội dung chi tiết bài báo/website từ link người dùng gửi (tích hợp `safeFetch` chống tấn công mạng nội bộ SSRF). |
+| `remember_fact` | Public | Ghi nhớ dài hạn sở thích, thói quen, kỷ niệm của Phùng Hữu Luân và các thành viên; hỗ trợ đính chính thông tin cũ (`replacesId`). |
+| `forget_fact` | **Admin (HITL)** | Xoá ghi nhớ theo ID — bắt buộc tạm dừng chờ Admin gõ xác nhận **`ok`** hoặc **`thôi`**. |
+| `schedule_reminder` | Public | Đặt lịch hẹn giờ nhắc việc chủ động trên Telegram (ví dụ: *"Nhắc mình 15 phút nữa đi uống nước"*). |
+| `list_reminders` | Public | Xem danh sách các lịch hẹn nhắc việc đang chờ trong cuộc trò chuyện. |
+| `cancel_reminder` | Public | Huỷ lịch hẹn nhắc việc theo mã ID. |
+| `watch_url` | **Admin** | Giám sát thay đổi của một trang web định kỳ bằng **Clean Text SHA-256 Hash** (tốn 0 token AI khi trang không đổi; tự báo về Telegram khi trang có cập nhật mới). |
+| `list_watches` | Public | Xem danh sách các website đang được giám sát. |
+| `unwatch_url` | **Admin** | Ngừng giám sát một website theo mã ID. |
+
+### 3. 🧠 Trí nhớ Phân tầng & Chống rò rỉ Dữ liệu (Hierarchical Scoped Memory)
+- **Lịch sử hội thoại theo từng Chat/Topic (`data/threads/<chatId>[_<topicId>]/history.jsonl`):** Ghi file an toàn (atomic write-then-rename), tách biệt tuyệt đối giữa chat riêng, các nhóm và từng topic.
+- **Chống rò rỉ DM ra Nhóm (`Collection-Time Visibility`):** Thông tin tâm sự trong chat riêng (DM) được gắn cứng `visibility: 'private'` bằng code, không bao giờ lọt vào ngữ cảnh của bất kỳ nhóm chat nào.
+- **Độ tươi mới & Đính chính (`Staleness & Tombstones`):** Tự động gắn nhãn `(cũ, cần hỏi lại)` cho thông tin quá 90 ngày (hoặc 14 ngày với thông tin biến động `volatile`), và lưu danh sách `Tombstones` để bot không nhắc lại thông tin đã được đính chính.
+
+### 4. 🛡️ Bảo mật, Phân quyền & Duyệt thao tác (Guardrails & HITL)
+- **Phân quyền bằng ID định danh (`ADMIN_TELEGRAM_IDS`):** So khớp tuyệt đối bằng `senderId` số của Telegram — kẻ lạ đổi tên hiển thị giống Admin vẫn bị chặn hoàn toàn.
+- **Ẩn và chặn Tool Admin ở cấp độ lõi:** Thành viên thường không nhìn thấy công cụ Admin trong schema và bị chặn cứng nếu model cố tình gọi.
+- **Human-in-the-Loop (`ok` / `thôi`):** Các thao tác xoá dữ liệu nhạy cảm tự động dừng lại hỏi xác nhận của chủ bot trước khi thực thi.
+- **Lọc bí mật đầu ra (`Redaction`):** Tự động quét và ẩn mọi Token Telegram, API Key (OpenAI, Gemini `AIza...` / `AQ...`, Tavily), Bearer token và mật khẩu trước khi gửi ra chat hoặc ghi log.
+
+---
+
+## 🏗️ Kiến trúc 5 Lớp Chuẩn Công Nghiệp
+
+```mermaid
+flowchart TD
+    A["1. LỚP ADAPTER (src/adapters/telegram/)<br/>Chuẩn hoá tin nhắn, tải ảnh Vision, chia tin dài & Rate Limiter"] --> B
+    B["2. LỚP ĐIỀU PHỐI (src/core/dispatcher.ts)<br/>Chống trùng lặp • Chặn duyệt HITL 'ok/thôi' • Hàng đợi per-thread • Rate Limit"] --> C
+    C["3. LỚP SUY LUẬN LÕI (src/core/agent.ts & llm.ts)<br/>Vòng lặp Tool Calling • Kiểm quyền Tool • AbortSignal (/stop)"] --> D
+    C --> E
+    D["4. LỚP CÔNG CỤ (src/tools/)<br/>Time • Web Search • Fetch URL • Memory • Reminders • Web Watcher"]
+    E["5. LỚP TRÍ NHỚ (src/core/facts.ts & storage.ts)<br/>Thread JSONL • Scoped Facts • Tombstones • Group Settings"]
+```
+
+---
+
+## 🚀 Hướng dẫn Cài đặt & Chạy từ A–Z
+
+### Bước 1: Yêu cầu hệ thống
+- **Node.js `>= 22`** (kiểm tra bằng lệnh `node -v`).
+- Một tài khoản **Telegram** và một khóa API từ **Google AI Studio (Gemini)** hoặc **OpenAI**.
+
+### Bước 2: Tạo Bot trên Telegram (`@BotFather`)
+1. Mở Telegram, nhắn tin cho **[@BotFather](https://t.me/BotFather)** (có dấu tích xanh).
+2. Gửi lệnh `/newbot` → nhập **Tên hiển thị** → nhập **Username** cho bot (kết thúc bằng `bot`, ví dụ: `bekane_bot`).
+3. Lưu lại **HTTP API Token** và **Username** của bot.
+4. **Tắt Privacy Mode** để bot đọc được tin nhắn trong nhóm:
+   - Gửi `/setprivacy` cho `@BotFather` → chọn `@bekane_bot` → chọn **`Disable`**.
+   - *(Lưu ý: Nếu đã thêm bot vào nhóm trước khi Disable, hãy xóa bot khỏi nhóm rồi thêm lại).*
+5. **Lấy User ID Telegram của bạn:**
+   - Tìm bot `@userinfobot` trên Telegram → bấm **Start** → copy dãy số **`Id`** (ví dụ: `6864517458`).
+
+### Bước 3: Lấy khóa API AI (Google Gemini hoặc OpenAI)
+- **Khuyên dùng Google Gemini (Miễn phí / Tốc độ cao / Hỗ trợ xem ảnh cực tốt):**
+  1. Truy cập [Google AI Studio (aistudio.google.com/api-keys)](https://aistudio.google.com/api-keys).
+  2. Bấm **Create API key** → copy mã khóa.
+  3. Cấu hình trong `.env`:
+     ```dotenv
+     AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+     AI_API_KEY=khoa_api_gemini_cua_ban
+     AI_MODEL=gemini-3.1-flash-lite
+     ```
+- **Hoặc dùng OpenAI:**
+  ```dotenv
+  AI_BASE_URL=https://api.openai.com/v1
+  AI_API_KEY=sk-...
+  AI_MODEL=gpt-4o-mini
+  ```
+
+### Bước 4: Clone dự án & Cài đặt thư viện
 
 ```powershell
+git clone https://github.com/luan0217091310-gif/setup-bot-tele.git
+cd setup-bot-tele
 npm.cmd ci
 ```
 
-Nếu chưa có `.env`, sao chép `.env.example` thành `.env`. Không ghi đè file chứa cấu hình thật.
+Tạo file `.env` từ file mẫu `.env.example`:
 
 ```powershell
 if (-not (Test-Path -LiteralPath .env)) { Copy-Item -LiteralPath .env.example -Destination .env }
 ```
 
-Điền các trường sau **trực tiếp trên máy**, không dán khóa vào chat, ảnh chụp hoặc Git:
+Mở file `.env` và điền các thông số của bạn:
 
 ```dotenv
 TELEGRAM_BOT_TOKEN=token_tu_BotFather
-TELEGRAM_BOT_USERNAME=ten_username_cua_bot_khong_co_dau_@
-ADMIN_TELEGRAM_IDS=ID_so_tai_khoan_cua_ban
-ALLOWED_GROUPS=-1001234567890
-AI_BASE_URL=https://api.openai.com/v1
-AI_API_KEY=khoa_API_cua_nha_cung_cap
-AI_MODEL=gpt-4o-mini
-GROUP_REPLY_MODE=all
+TELEGRAM_BOT_USERNAME=bekane_bot
+BOT_ALIASES=bekane,luanbot
+ADMIN_TELEGRAM_IDS=6864517458
+ALLOWED_GROUPS=-5185817080
 DM_POLICY=admin
+GROUP_REPLY_MODE=all
+
+AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+AI_API_KEY=khoa_api_cua_ban
+AI_MODEL=gemini-3.1-flash-lite
+MAX_ROUNDS=5
+MAX_OUTPUT_TOKENS=1500
 ```
 
-`AI_MODEL` là mã model tài khoản của bạn được phép gọi; giá trị mẫu được giữ từ cấu hình cũ, không có nghĩa tài khoản nào cũng có quyền sử dụng. Endpoint cần hỗ trợ Chat Completions và `max_completion_tokens`. Bot gửi `store: false` với endpoint thông thường, nhưng bỏ trường này khi kết nối trực tiếp Gemini vì Google không hỗ trợ nó. ChatGPT và API có cấu hình tài khoản/thanh toán riêng; bot cần khóa API của endpoint đã chọn.
+> **Mẹo lấy `ALLOWED_GROUPS` cho nhóm mới:** Bạn có thể để `ALLOWED_GROUPS=` trống ở lần chạy đầu, thêm bot vào nhóm rồi dùng tài khoản Admin gõ `/id@ten_bot` trong nhóm. Bot sẽ trả về `Chat ID: -100...` (hoặc `-...`), bạn chỉ cần dán mã số âm đó vào `ALLOWED_GROUPS` rồi khởi động lại bot.
 
-Để dùng Gemini, đặt `AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/`, `AI_MODEL=gemini-3.1-flash-lite` và điền khóa Google AI Studio vào `AI_API_KEY`. Không dùng token Telegram cho trường này.
+### Bước 5: Chạy Bot & Kiểm thử
 
-```powershell
-npm.cmd test
-npm.cmd run typecheck
-npm.cmd run build
-npm.cmd start
+- **Chạy chế độ phát triển (tự nạp TypeScript trực tiếp):**
+  ```powershell
+  npm.cmd run dev
+  ```
+- **Chạy bộ kiểm thử tự động (71 bài test an toàn & tích hợp):**
+  ```powershell
+  npm.cmd test
+  npm.cmd run typecheck
+  npm.cmd run build
+  ```
+- **Chạy bản Production đã biên dịch:**
+  ```powershell
+  npm.cmd start
+  ```
+
+---
+
+## 💬 Bảng Lệnh Điều Khiển trên Telegram
+
+| Lệnh | Quyền sử dụng | Chức năng |
+| :--- | :---: | :--- |
+| `/help`, `/start` | Mọi thành viên | Xem hướng dẫn tổng quan & danh sách lệnh |
+| `/stop` | Thành viên / Admin | Hủy câu hỏi đang chạy hoặc đang chờ trong cuộc trò chuyện |
+| `/memories` (hoặc `/facts`) | Mọi thành viên | Xem danh sách các ghi nhớ mà bot đang lưu trong phạm vi hiện tại |
+| `/reminders` | Mọi thành viên | Xem các lịch hẹn nhắc việc đang chờ trong cuộc trò chuyện |
+| `/watches` | Mọi thành viên | Xem danh sách các trang web đang được giám sát thay đổi |
+| `/id` | **Chủ bot (Admin)** | Xem `User ID`, `Chat ID` và `Topic ID` (hoạt động cả ở nhóm chưa cấp phép) |
+| `/status` | **Chủ bot (Admin)** | Xem trạng thái bot, số công cụ, số ghi nhớ, lịch nhắc, trang canh, hàng đợi & tổng token |
+| `/pause` / `/resume` | **Chủ bot (Admin)** | Tạm dừng / Bật lại chế độ tự động trả lời trong nhóm |
+| `/mode all` | **Chủ bot (Admin)** | Bot trả lời mọi tin nhắn văn bản và hình ảnh trong nhóm |
+| `/mode mention` | **Chủ bot (Admin)** | Bot chỉ trả lời khi được `@tag` hoặc gọi `@biệt_danh` (tin khác chỉ lưu làm ngữ cảnh) |
+| `/clear_history confirm` | **Chủ bot (Admin)** | Xóa lịch sử hội thoại lưu trong bộ nhớ của chat/topic hiện tại |
+
+---
+
+## 🎭 Tùy chỉnh Tính cách Bot (`config/persona.prompt.md`)
+
+Toàn bộ tính cách, cách xưng hô và phong cách trò chuyện của bot nằm tại file [`config/persona.prompt.md`](config/persona.prompt.md).  
+Hệ thống tự động kiểm tra thời gian sửa file (`mtime`) ở mỗi lượt tin nhắn — **bạn có thể chỉnh sửa trực tiếp file này khi bot đang chạy và thay đổi có hiệu lực ngay lập tức mà không cần khởi động lại bot**.
+
+---
+
+## 🖥️ Triển khai Chạy 24/7 trên VPS Ubuntu (Production)
+
+1. Chuẩn bị máy chủ Ubuntu 24.04 (2 vCPU / 2–4GB RAM), cài đặt Node.js `>= 22`, tạo user dịch vụ `botuser` và thư mục `/opt/bothieu`.
+2. Đẩy mã nguồn lên VPS (không chép `node_modules` từ Windows; giữ nguyên `.env`, `data/`, `backups/` trên máy chủ):
+   ```bash
+   npm ci
+   npm run build
+   npm prune --omit=dev
+   ```
+3. Thiết lập quyền file bảo mật:
+   ```bash
+   chmod 600 /opt/bothieu/.env
+   ```
+4. Cài đặt dịch vụ `systemd` từ file mẫu [`deploy/bothieu.service`](deploy/bothieu.service):
+   ```bash
+   sudo cp deploy/bothieu.service /etc/systemd/system/bothieu.service
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now bothieu
+   sudo systemctl status bothieu
+   sudo journalctl -u bothieu -f
+   ```
+   *(Lưu ý: Tắt tiến trình bot trên máy cá nhân trước khi bật trên VPS để tránh xung đột Long-Polling cùng một token).*
+5. Sao lưu dữ liệu định kỳ bằng [`scripts/backup.sh`](scripts/backup.sh):
+   ```bash
+   bash scripts/backup.sh /opt/bothieu/data /opt/bothieu/backups
+   ```
+
+---
+
+## 📂 Cấu trúc Thư mục Dự án
+
+```text
+setup-bot-tele/
+├── config/
+│   └── persona.prompt.md          # Định nghĩa tính cách, xưng hô & hướng dẫn kỹ năng cho AI
+├── deploy/
+│   └── bothieu.service            # Cấu hình systemd chạy 24/7 trên VPS Linux
+├── docs/                          # Tài liệu thiết kế kiến trúc & kế hoạch phát triển
+├── scripts/
+│   └── backup.sh                  # Script sao lưu an toàn thư mục data/
+├── src/
+│   ├── index.ts                   # Điểm khởi chạy ứng dụng, kết nối Telegram, Tools & Schedulers
+│   ├── config.ts                  # Kiểm tra và nạp cấu hình từ biến môi trường (.env)
+│   ├── types.ts                   # Hợp đồng dữ liệu chuẩn (IncomingMessage, FileAttachment)
+│   ├── adapters/telegram/
+│   │   ├── client.ts              # Kết nối Telegram Bot API v2, tải ảnh Vision, Rate Limiter
+│   │   ├── parse.ts               # Phân tích tin nhắn, @mention, reply & đính kèm ảnh
+│   │   └── split.ts               # Chia nhỏ tin nhắn dài vượt ngưỡng 4096 ký tự
+│   ├── core/
+│   │   ├── dispatcher.ts          # Điều phối tin nhắn, lệnh quản trị, hàng đợi & HITL intercept
+│   │   ├── agent.ts               # Vòng lặp suy luận AI Agent & điều phối Tool Calling
+│   │   ├── confirm.ts             # Quản lý hàng chờ xác nhận HITL ("ok" / "thôi") của Admin
+│   │   ├── facts.ts               # Trí nhớ sự thật phân tầng (Private/Group), Staleness & Tombstones
+│   │   ├── llm.ts                 # Kết nối OpenAI / Google Gemini Multimodal & Function Calling
+│   │   ├── net.ts                 # safeFetch chống SSRF & bộ lọc làm sạch HTML
+│   │   ├── persona.ts             # Tự động nạp lại persona.prompt.md khi file thay đổi
+│   │   ├── queue.ts               # Hàng đợi tác vụ độc lập theo từng chat/topic (Keyed WorkQueue)
+│   │   ├── redact.ts              # Bộ lọc ẩn Token, API Key & mật khẩu ở mọi đầu ra
+│   │   ├── scheduler.ts           # Bộ lập lịch hẹn giờ nhắc việc chủ động
+│   │   ├── storage.ts             # Lưu trữ lịch sử hội thoại JSONL & cài đặt nhóm
+│   │   └── watches.ts             # Giám sát thay đổi website bằng Clean Text SHA-256 Hash
+│   └── tools/
+│       ├── types.ts               # Hợp đồng chuẩn của một Tool
+│       ├── index.ts               # Bộ lọc phân quyền Tool (Public vs Admin, DM-only)
+│       ├── time.ts                # Công cụ xem ngày giờ Việt Nam
+│       ├── web.ts                 # Công cụ tìm kiếm Internet (Tavily + DuckDuckGo fallback)
+│       ├── fetchUrl.ts            # Công cụ đọc và trích xuất nội dung trang web
+│       ├── memoryTools.ts         # Công cụ ghi nhớ (remember_fact) & xoá ghi nhớ (forget_fact)
+│       ├── reminderTools.ts       # Công cụ đặt, xem & huỷ lịch nhắc việc
+│       └── watchTools.ts          # Công cụ thêm, xem & gỡ trang web giám sát
+├── test/                          # 15 bộ kiểm thử tự động (71 tests với Vitest)
+├── .env.example                   # Mẫu cấu hình biến môi trường
+├── HUONG-DAN-XAY-BOT.md           # Sổ tay kiến trúc thực chiến từ Zero đến Production
+└── README.md                      # Tài liệu hướng dẫn cài đặt & sử dụng
 ```
-
-Hoặc dùng `npm.cmd run dev` khi phát triển. Dừng bằng Ctrl+C. Chỉ bật một phiên chạy cho cùng token. Nếu máy ngủ hoặc tắt thì bot local sẽ ngừng phục vụ.
-
-## Thiết lập Telegram
-
-1. Trong Telegram, mở đúng tài khoản **@BotFather**, dùng `/newbot` và lấy token. Có thể dùng lại bot đã tạo.
-2. Lấy ID số tài khoản cá nhân bằng cách nhắn một bot cung cấp user ID đáng tin cậy, rồi điền `ADMIN_TELEGRAM_IDS`. ID không phải số điện thoại hay username.
-3. Thêm bot vào nhóm thử nghiệm. Qua BotFather dùng `/setprivacy`, chọn bot, chọn **Disable**. Theo hướng dẫn Telegram, cần thêm lại bot vào nhóm để thay đổi Privacy Mode có hiệu lực. Bot phải có quyền gửi tin trong nhóm.
-4. Có thể tạm để `ALLOWED_GROUPS` rỗng. Chủ bot gửi `/id@ten_bot` trong nhóm; bot trả Chat ID để điền vào `ALLOWED_GROUPS`, sau đó khởi động lại. `/id` chỉ được chủ bot sử dụng kể cả nhóm chưa được cho phép.
-5. Gửi tin thường bằng tài khoản thành viên. Bot phải reply đúng tin nhắn đó, trong đúng topic nếu có.
-
-Không cần cấp quyền xóa tin hay quản lý thành viên cho chức năng trả lời. Các nhóm không nằm trong danh sách được phép sẽ bị bỏ qua. Bản này bỏ qua tin từ bot khác, channel và tài khoản gửi ẩn danh qua `sender_chat`; chưa có xử lý chỉnh sửa tin, voice, sticker hay nội dung ảnh/tài liệu.
-
-Nếu bot có webhook từ ứng dụng cũ, chương trình sẽ dừng với thông báo. Tắt ứng dụng cũ và gỡ webhook bằng công cụ quản lý của bạn trước khi bật long polling; chương trình không tự xóa webhook đang tồn tại.
-
-## Lệnh
-
-| Lệnh | Ai dùng | Tác dụng |
-|---|---|---|
-| `/help`, `/start` | Thành viên được phép | Xem hướng dẫn |
-| `/stop` | Thành viên được phép | Hủy câu hỏi của chính mình đang chạy và đang chờ trong chat/topic hiện tại |
-| `/stop` | Chủ bot | Hủy mọi tác vụ trong chat/topic hiện tại |
-| `/id` | Chủ bot | Xem User ID, Chat ID và Topic ID |
-| `/status` | Chủ bot | Xem chế độ, số tác vụ, số lỗi và tổng token API báo từ khi khởi động |
-| `/pause` | Chủ bot | Tắt tự trả lời, hủy tác vụ của mọi topic trong nhóm |
-| `/resume` | Chủ bot | Bật lại tự trả lời trong nhóm |
-| `/mode all` | Chủ bot | Trả lời mọi tin nhắn văn bản trong nhóm |
-| `/mode mention` | Chủ bot | Chỉ trả lời khi @tag bot hoặc @biệt_danh |
-| `/clear_history` | Chủ bot | Xem hướng dẫn xóa ngữ cảnh |
-| `/clear_history confirm` | Chủ bot | Hủy tác vụ và xóa lịch sử được lưu của chat/topic hiện tại |
-
-"Chủ bot" nghĩa là ID nằm trong `ADMIN_TELEGRAM_IDS`, không tự động bao gồm mọi quản trị viên Telegram. Người đổi tên giống Hiếu vẫn không có quyền này. Lệnh có hậu tố `@bot_khac` sẽ bị bỏ qua. Trong chế độ `mention`, reply tin bot mà không tag chỉ được lưu làm ngữ cảnh.
-
-`/clear_history` không xóa tin nhắn trên Telegram. `/stop` không thu hồi tin đã gửi hoặc bảo đảm hủy một lượt gửi mà Telegram đã nhận. Lệnh quản trị vẫn hoạt động khi nhóm đang pause. Trạng thái pause/mode được lưu theo nhóm trong `data/group-settings.json`; đổi mặc định trong `.env` không ghi đè lựa chọn đã lưu bằng lệnh.
-
-## Các giới hạn mặc định
-
-| Biến | Giá trị | Ý nghĩa |
-|---|---:|---|
-| `HISTORY_LIMIT` | 40 | Số mục lịch sử tối đa mỗi chat/topic |
-| `HISTORY_MAX_CHARS` | 16000 | Ngân sách ký tự JSON của lịch sử được giữ |
-| `MAX_INPUT_CHARS` | 6000 | Độ dài tin nhắn đầu vào tối đa |
-| `MAX_REPLY_CHARS` | 3500 | Độ dài phản hồi tối đa; phần vượt được cắt bằng dấu … |
-| `MAX_OUTPUT_TOKENS` | 600 | Giới hạn token đầu ra của AI, gồm cả phần suy luận nếu model có |
-| `AI_TIMEOUT_MS` | 30000 | Thời gian tối đa chờ một câu trả lời AI |
-| `MAX_CONCURRENT_AI` | 3 | Số luồng đang xử lý; mỗi luồng bao gồm cả việc gửi phản hồi |
-| `MAX_QUEUE_PER_THREAD` | 10 | Số tác vụ tối đa gồm đang chạy và chờ mỗi chat/topic; cũng giới hạn số phản hồi đang chờ mỗi chat |
-| `MAX_QUEUE_TOTAL` | 100 | Tổng tác vụ tối đa; đồng thời giới hạn hàng đợi phản hồi toàn bot |
-| `MAX_QUEUE_WAIT_MS` | 90000 | Câu hỏi quá tuổi này khi đến lượt sẽ bị bỏ, có thông báo khi có thể |
-| `USER_MESSAGES_PER_MINUTE` | 10 | Số yêu cầu tối đa mỗi người trong cửa sổ một phút, tính chung các chat |
-
-Phản hồi được gửi tuần tự trong mỗi chat, cách nhau tối thiểu khoảng 3,1 giây, tính cả lệnh và các đoạn tin dài. Tốc độ này áp dụng chung các topic. HTTP 429 được thử lại tối đa hai lần theo `retry_after` trong phạm vi 60 giây; lỗi mạng khi gửi không tự thử lại vì có thể tạo tin trùng.
-
-Khi quá tải, bot gộp thông báo tối đa một lần mỗi 30 giây cho mỗi chat, tránh spam thêm. Vì có giới hạn tải và giới hạn Telegram, bot không hứa trả lời riêng từng tin trong một nhóm gửi liên tục quá nhanh. Theo dõi `/status` và số token trên trang của nhà cung cấp để kiểm soát sử dụng; bản này chưa có hạn mức tiền theo ngày.
-
-Trong chế độ `mention`, tin thường chỉ làm ngữ cảnh và không tiêu hạn mức yêu cầu AI. Lệnh quản trị của chủ bot và `/stop` vẫn được xử lý khi người gửi đã hết hạn mức; hàng đợi gửi Telegram vẫn có giới hạn.
-
-Chỉnh cách xưng hô và kiến thức hướng dẫn trong `config/persona.prompt.md`; nội dung được đọc lại mỗi lượt, không cần build lại. Dữ liệu user được gửi cho AI dưới dạng nội dung hội thoại có ID người gửi và ngữ cảnh reply; không có công cụ cho AI thay đổi cài đặt hay quyền quản trị.
-
-## Lưu dữ liệu và giới hạn bản đầu
-
-- Lịch sử có giới hạn được ghi dạng JSONL tại `data/threads/<chatId>[_<topicId>]/history.jsonl`, bằng ghi file tạm rồi đổi tên.
-- Chat riêng, nhóm khác và topic khác có lịch sử riêng. Mỗi lượt chỉ nạp lịch sử của phạm vi hiện tại. Không có cơ sở dữ liệu trí nhớ cá nhân dùng chung.
-- Token/key được lọc trước khi gửi ra chat, ghi lịch sử và ghi log. Nội dung hội thoại được gửi đến nhà cung cấp AI đã cấu hình; nên thông báo cho thành viên khi bật bot.
-- Lịch sử giữ lại qua khởi động lại. Bộ chống trùng 2000 tin, hạn mức theo người và hàng đợi nằm trong RAM. Tác vụ chưa hoàn tất có thể mất khi tiến trình dừng; thành viên cần gửi lại. Chưa có hàng đợi bền vững hay bảo đảm exactly-once qua restart.
-- Trong mỗi chat/topic, câu hỏi chạy tuần tự. Các chat/topic khác chạy đồng thời theo giới hạn. AI lỗi/timeout không chặn vĩnh viễn câu hỏi sau.
-- File chỉ có ảnh/tài liệu sẽ nhận thông báo hỗ trợ văn bản. Chú thích được đọc như văn bản; bot chưa đọc ảnh, PDF hay file đính kèm.
-- Chưa có tra web, ghi nhớ facts dài hạn, chạy shell, Docker sandbox, Zalo hay scheduler. Các kế hoạch trong `docs/superpowers/plans/` là thiết kế giai đoạn trước; README này mô tả bản đang triển khai.
-
-## Chạy 24/7 trên VPS Ubuntu
-
-Chuẩn bị Node.js >=22, một user dịch vụ `botuser`, và thư mục `/opt/bothieu` thuộc user đó. Chép mã nguồn, `package-lock.json`, `config/` và các cấu hình TypeScript lên VPS; không chép `node_modules` Windows. Giữ `.env`, `data/` và `backups/` của máy chủ khi cập nhật.
-
-Tại `/opt/bothieu`, cài và build rồi giảm dependency dùng cho phát triển:
-
-```bash
-npm ci
-npm run build
-npm prune --omit=dev
-```
-
-Tạo `.env` bằng mẫu, điền cấu hình và đặt quyền chỉ user dịch vụ đọc. Tạo `data/` và `backups/` thuộc `botuser`. Cài `deploy/bothieu.service` vào `/etc/systemd/system/bothieu.service`. Mẫu service dùng `/usr/bin/node`; chỉnh nếu Node được cài ở đường dẫn khác. **Tắt bot local trước khi bật bot trên VPS.**
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now bothieu
-sudo systemctl status bothieu
-sudo journalctl -u bothieu -f
-```
-
-Service tự chạy lại sau lỗi. Xem log bằng journal; bot không ghi toàn bộ nội dung cuộc trò chuyện vào console. Chưa tích hợp kênh báo động ngoài khi bot chết. Khi cập nhật, dừng service, build phiên bản mới và khởi động lại; không xóa thư mục trạng thái.
-
-Sao lưu bằng user có quyền đọc dữ liệu và ghi thư mục backup:
-
-```bash
-bash scripts/backup.sh /opt/bothieu/data /opt/bothieu/backups
-```
-
-Có thể đặt lệnh trên vào cron mỗi ngày. Script lưu toàn bộ dữ liệu, gồm lịch sử và chế độ nhóm; không chứa `.env`. Giữ bản cấu hình bí mật riêng ở nơi an toàn. Để khôi phục, dừng service, giải nén backup vào thư mục tạm để kiểm tra rồi phục hồi `data/` với đúng quyền user dịch vụ trước khi khởi động lại.
-
-## Kiểm chứng
-
-```powershell
-npm.cmd test
-npm.cmd run typecheck
-npm.cmd run build
-```
-
-Test không gửi tin Telegram thật và không tiêu tiền AI. Bài tích hợp chạy SDK Telegram v2 và OpenAI thật với HTTP giả lập để kiểm tra cả đường đi: polling → parser → dispatcher → AI → reply đúng tin/topic.
-
-Trước khi dùng nhóm chính: thử hai thành viên hỏi xen kẽ, câu hỏi nối tiếp bằng reply, một nhóm ngoài danh sách, giả tên chủ bot, `/pause`, `/resume`, `/stop`, chuyển mode, xóa lịch sử một topic và khởi động lại. Kiểm tra model và token thực tế bằng nhóm thử nghiệm.
-
-## Tài liệu API tham khảo
-
-- [Telegram: Privacy Mode và tin nhắn bot nhận được](https://core.telegram.org/bots/faq#what-messages-will-my-bot-get)
-- [Telegram: BotFather và Privacy Mode](https://core.telegram.org/bots/features#privacy-mode)
-- [Telegram: giới hạn gửi tin](https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this)
-- [Telegram: sendMessage và reply_parameters](https://core.telegram.org/bots/api#sendmessage)
-- [OpenAI Docs: Chat Completions](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)
