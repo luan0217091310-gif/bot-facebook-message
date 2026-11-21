@@ -73,7 +73,7 @@ export function loadConfig(env: Record<string, string | undefined>, channel: 'te
   if (allowedGroups.some((id) => !/^-\d+$/.test(id))) {
     throw new Error('Invalid ALLOWED_GROUPS: use negative Telegram group IDs');
   }
-  const botUsername = (env.TELEGRAM_BOT_USERNAME ?? 'bekane').trim().replace(/^@/, '');
+  const botUsername = orDefault(env.TELEGRAM_BOT_USERNAME, 'bekane').replace(/^@/, '');
   if (!/^[a-z0-9_]+$/i.test(botUsername)) throw new Error('Invalid TELEGRAM_BOT_USERNAME');
   const aiBaseUrl = orDefault(env.AI_BASE_URL, 'https://api.openai.com/v1');
   const endpoint = new URL(aiBaseUrl);
