@@ -15,7 +15,7 @@ const item = z.object({
     attachments: z.array(z.object({type: z.string(), payload: z.object({url: z.string().optional(), sticker_id: z.union([z.number(),z.string()]).optional()})})).optional()}).optional(),
   postback: z.object({mid: z.string().optional(), payload: z.string()}).optional(),
   optin: z.object({type: z.string().optional(),payload: z.string().optional(), one_time_notif_token: z.string().optional()}).optional(),
-  reaction: z.object({mid: z.string(), action: z.string()}).optional(), read: z.unknown(), delivery: z.unknown(),
+  reaction: z.object({mid: z.string(), action: z.string()}).optional(), read: z.unknown().optional(), delivery: z.unknown().optional(),
 });
 const envelope = z.object({object: z.string(), entry: z.array(z.object({id, messaging: z.array(z.unknown()).optional(), changes: z.array(z.unknown()).optional()}))});
 export type PageEvent = {key: string; user: string; at: number} & (

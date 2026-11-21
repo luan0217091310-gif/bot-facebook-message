@@ -25,3 +25,12 @@
 
 ### Giai đoạn 4
 Worktree `.worktrees/messenger-production`, nhánh `feat/messenger-production`. Nghiệp vụ Page gồm STT, tài liệu riêng, FAQ có dẫn nguồn, gợi ý, Việt/Anh, chuyển nhân viên có hạn, phản hồi bình luận, đặt lịch có xác nhận, xuất/xoá dữ liệu và liên kết hai tài khoản. Test dùng provider giả. Không dùng Page thật.
+
+## Tiến độ của Anti (`anti/phase4-6`)
+- **Hoàn thiện Giai đoạn 4:**
+  - `src/services/language.ts`: Nhận diện tiếng Việt có dấu và không dấu (tránh nhầm lệnh `/help`, `/book` thành tiếng Anh), hỗ trợ `/lang vi` và `/lang en`.
+  - `src/services/page.ts`: Quick reply gợi ý theo ngữ cảnh (giới hạn <= 20 ký tự/nút theo chuẩn Meta), cải thiện lọc bình luận và gắn quick reply vào Private Reply, bổ sung lệnh `/lang`, xử lý `/link` khi chưa bật Telegram và `/faq` rỗng không chuyển nhầm sang nhân viên.
+  - `src/services/links.ts` & `src/index.ts`: Bổ sung `linkedPsid`/`unlinkTelegram` để hỗ trợ `/unlink` từ phía Telegram, gắn nhãn `📩 [Messenger]` cho nhắc lỡ chéo kênh và `Promise.allSettled` khi cảnh báo admin Telegram.
+- **Hoàn thiện Giai đoạn 6 (Kiểm thử & Trình giả lập cục bộ):**
+  - `src/simulator.ts` (`npm run messenger:sim`): Trình giả lập chat Messenger cục bộ qua Fastify webhook có ký HMAC-SHA256 + SQLite inbox + Graph mock + Mock AI cục bộ khi chưa có `AI_API_KEY` (hỗ trợ chọn quick reply `:1..:9`, `:postback`, `:comment`, `:file`, `:kb`, `:user`, `:advance`, `:notify`).
+  - `test/messenger-adapter.test.ts` & `test/phase4-features.test.ts`: Kiểm thử đơn vị và tích hợp cho chữ ký webhook, parser, chia tin nhắn 2000 ký tự, cửa sổ 24h/OTN/Telegram fallback/missed flush, phân quyền admin PSID lớn, luồng HTTP webhook → SQLite → `createBrain` → Graph mock, ngôn ngữ, gợi ý, bình luận và trình giả lập.
