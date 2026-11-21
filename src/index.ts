@@ -11,15 +11,21 @@ import {accountLinks} from './services/links.js';
 import {toFile} from 'openai';
 import {Repository} from './repository.js';
 import {loadConfig,type Config} from './config.js';
-import {redact} from './core/redact.js';
+import {createLogger,envSecrets} from './core/logger.js';
+import {validateEnv} from './core/env.js';
+import {createHash} from 'node:crypto';
+import {registerWeb,startStandaloneWeb,type WebContext} from './web/server.js';
+import type {FastifyInstance} from 'fastify';
 import {enabledChannels,type ChannelAdapter} from './channel.js';
 
-const clean=(s:string)=>redact(s,Object.entries(process.env).filter(([k,v])=>v && /TOKEN|SECRET|API_KEY|PASSWORD/.test(k)).map(([,v])=>v!));
-const log=(s:string)=>console.log(clean(s));
+const {log,clean}=createLogger(envSecrets());
 async function main() {
+  validateEnv(process.env);
   const entries:Array<{adapter:ChannelAdapter;brain:ReturnType<typeof createBrain>}>=[];
   let db:Repository|undefined;
   let links:ReturnType<typeof accountLinks>|undefined;
+  let webPage:WebContext['page'];
+  let standalone:FastifyInstance|undefined;
   const telegram=()=>entries.find(e=>e.adapter.channel==='telegram')?.adapter;
   const add=(cfg:Config,adapter:ChannelAdapter)=>{
     const brain=createBrain(cfg,adapter,clean,log);
@@ -61,6 +67,7 @@ async function main() {
           },
         });
         links=services.links;
+        webPage={messenger,services};
         messenger.suggestions((msg,reply)=>{
           if(msg.text.startsWith('/'))return undefined;
           const en=repo.get<string>(msg.senderId,'language')==='en';
@@ -78,6 +85,14 @@ async function main() {
         });
       }
     }
+    const env=process.env;
+    const web:WebContext={brains:entries,page:webPage,password:env.DASHBOARD_PASSWORD||undefined,
+      // Khoá ký cookie: DASHBOARD_SECRET nếu có, nếu không suy ra từ mật khẩu (đổi mật khẩu = đăng xuất mọi phiên).
+      secret:env.DASHBOARD_SECRET||createHash('sha256').update('bekane:'+(env.DASHBOARD_PASSWORD??'')+(env.FB_APP_SECRET??'')).digest('hex'),
+      publicBaseUrl:env.PUBLIC_BASE_URL,appSecret:env.FB_APP_SECRET,humanAgent:env.FB_HUMAN_AGENT_ENABLED==='true',
+      privacy:{owner:env.PRIVACY_OWNER||'Chủ Page',contact:env.PRIVACY_CONTACT||'Nhắn tin trực tiếp cho Page.'},log};
+    if(webPage)registerWeb(webPage.messenger.app,web);
+    else if(web.password)standalone=await startStandaloneWeb(web,Number(env.PORT??3000));
     await Promise.race(entries.map(e=>e.adapter.start(async msg=>{
       if(e.adapter.channel==='telegram' && !msg.isGroup && msg.text.startsWith('/link ')){
         const ok=links?.redeem(msg);
@@ -87,6 +102,7 @@ async function main() {
     })));
   } finally {
     stop();
+    await standalone?.close();
     await Promise.allSettled(entries.map(async e=>{await e.brain.close();await e.adapter.close();}));
     db?.close();
   }

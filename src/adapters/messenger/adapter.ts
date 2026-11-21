@@ -13,7 +13,7 @@ export function inWindow(at:number|undefined,now=Date.now(),duration=DAY) {
   return at!==undefined && at<=now && now-at<duration;
 }
 export function createMessenger(graph:Graph,db:Repository,log:(s:string)=>void) {
-  const app=Fastify({bodyLimit:2*1024*1024,logger:false});
+  const app=Fastify({bodyLimit:2*1024*1024,logger:false,trustProxy:true});
   const cfg=graph.cfg;
   let onEvent:((event:PageEvent)=>Promise<boolean>)|undefined;
   let afterChat:((msg:IncomingMessage)=>Promise<void>)|undefined;
