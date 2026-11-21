@@ -11,7 +11,7 @@ const UnwatchArgs = z.object({
   id: z.string().min(1),
 });
 
-export function createWatchTools(store: WatchStore): Tool[] {
+export function createWatchTools(store: WatchStore, plan?: (id:string,job:string,title:string,due?:number)=>Promise<string>): Tool[] {
   const watchUrl: Tool = {
     name: 'watch_url',
     description:
@@ -34,7 +34,8 @@ export function createWatchTools(store: WatchStore): Tool[] {
         threadId: ctx.threadId,
         topicId: ctx.topicId,
       });
-      return `Đã bắt đầu giám sát [${site.id}] ${site.label} (${site.url}). Bot sẽ tự báo khi trang có thay đổi!`;
+      const policy=await plan?.(ctx.threadId,'watch:'+site.id,site.label) ?? '';
+      return `Đã bắt đầu giám sát [${site.id}] ${site.label} (${site.url}). Bot sẽ tự báo khi trang có thay đổi! ${policy}`;
     },
   };
 

@@ -19,3 +19,6 @@
 
 ### Giai đoạn 2
 Đã nối Messenger và Telegram vào cùng createBrain, thêm Fastify webhook, inbox SQLite, Graph, menu, chữ ký, parse attachment và cấu hình theo Page. Tiếp theo nối chính sách gửi chủ động và lệnh riêng.
+
+### Giai đoạn 3
+Đã nối nút HITL, admin PSID, lệnh riêng, ảnh, lịch và theo dõi. OTN gắn theo Page, PSID và job. Khi thiếu quyền gửi, lưu thông báo bị lỡ để trả ở lần tương tác tiếp.

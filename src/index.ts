@@ -5,6 +5,7 @@ import {createTelegram} from './adapters/telegram/client.js';
 import {createMessenger} from './adapters/messenger/adapter.js';
 import {messengerConfig,pageBrainConfig} from './adapters/messenger/config.js';
 import {Graph} from './adapters/messenger/graph.js';
+import {notifications} from './adapters/messenger/notifications.js';
 import {Repository} from './repository.js';
 import {loadConfig,type Config} from './config.js';
 import {redact} from './core/redact.js';
@@ -30,7 +31,16 @@ async function main() {
         const page=messengerConfig(process.env), cfg=pageBrainConfig(process.env,page);
         db=new Repository(join(cfg.dataDir,'page.sqlite'));
         const messenger=createMessenger(new Graph(page),db,log);
+        const notices=notifications(messenger,{otn:process.env.FB_OTN_ENABLED==='true',log});
+        Object.assign(messenger.adapter,{notify:notices.notify,plan:notices.plan});
         add(cfg,messenger.adapter);
+        messenger.use(async e=>{
+          if(e.kind==='optin'){notices.accept(e);return true;}
+          if(e.kind!=='chat')return true;
+          await notices.flush(e.user);
+          if(e.msg.text.toLocaleLowerCase('vi')==='trợ giúp')e.msg.text='/help';
+          return false;
+        });
       }
     }
     await Promise.race(entries.map(e=>e.adapter.start(e.brain.dispatcher.handle)));

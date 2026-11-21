@@ -11,7 +11,7 @@ const CancelArgs = z.object({
   id: z.string().min(1),
 });
 
-export function createReminderTools(store: ReminderStore, now: () => number = Date.now): Tool[] {
+export function createReminderTools(store: ReminderStore, now: () => number = Date.now, plan?: (id:string,job:string,title:string,due?:number)=>Promise<string>): Tool[] {
   const scheduleReminder: Tool = {
     name: 'schedule_reminder',
     description:
@@ -40,8 +40,9 @@ export function createReminderTools(store: ReminderStore, now: () => number = Da
         note: args.note.trim(),
         dueAt,
       });
+      const policy = await plan?.(ctx.threadId,'reminder:'+reminder.id,args.note,dueAt) ?? '';
       const dueStr = new Date(dueAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
-      return `Đã đặt lịch nhắc [${reminder.id}]: "${reminder.note}" vào lúc ${dueStr}.`;
+      return `Đã đặt lịch nhắc [${reminder.id}]: "${reminder.note}" vào lúc ${dueStr}. ${policy}`;
     },
   };
 

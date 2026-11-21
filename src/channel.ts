@@ -8,7 +8,8 @@ export interface ChannelAdapter {
   maxText: number;
   split(text: string): string[];
   send(msg: IncomingMessage, text: string, signal?: AbortSignal): Promise<void>;
-  notify(conversationId: string, text: string, topicId?: number): Promise<void>;
+  notify(conversationId: string, text: string, topicId?: number, job?: string): Promise<void>;
+  plan?(id:string,job:string,title:string,due?:number):Promise<string>;
   media(conversationId: string, type: 'image' | 'file', url: string): Promise<void>;
   choices(msg: IncomingMessage, text: string, options: Choice[]): Promise<void>;
   typing(msg: IncomingMessage, signal: AbortSignal): Promise<void>;

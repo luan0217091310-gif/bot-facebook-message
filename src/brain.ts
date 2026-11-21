@@ -31,7 +31,7 @@ export function createBrain(cfg: Config, adapter: ChannelAdapter, clean: (s: str
     await adapter.notify(
       reminder.threadId,
       `⏰ Nhắc việc${tag}: ${reminder.note}`,
-      reminder.topicId,
+      reminder.topicId, 'reminder:'+reminder.id,
     );
   });
 
@@ -39,7 +39,7 @@ export function createBrain(cfg: Config, adapter: ChannelAdapter, clean: (s: str
     await adapter.notify(
       site.threadId,
       `🌐 Trang web theo dõi vừa có cập nhật mới!\n• ${site.label}\n• Link: ${site.url}\n• Tóm tắt nội dung mới:\n${preview}`,
-      site.topicId,
+      site.topicId, 'watch:'+site.id,
     );
   });
 
@@ -48,8 +48,8 @@ export function createBrain(cfg: Config, adapter: ChannelAdapter, clean: (s: str
     createWebSearchTool(cfg.tavilyApiKey),
     createFetchUrlTool(),
     ...createMemoryTools(facts),
-    ...createReminderTools(reminders),
-    ...createWatchTools(watches),
+    ...createReminderTools(reminders,Date.now,adapter.plan),
+    ...createWatchTools(watches,adapter.plan),
   ];
 
   const dispatcher = createDispatcher({
@@ -64,6 +64,8 @@ export function createBrain(cfg: Config, adapter: ChannelAdapter, clean: (s: str
     watches,
     clean,
     log,
+    channel:adapter.channel,
+    confirm:adapter.channel==='messenger' ? (m,q)=>adapter.choices(m,q,[{title:'Đồng ý',payload:'ok'},{title:'Huỷ',payload:'thôi'}]) : undefined,
     llm: createOpenAiLlm(client, cfg.aiModel, cfg.maxOutputTokens),
     send: adapter.send,
     typing: adapter.typing,

@@ -15,6 +15,7 @@ export interface Reminder {
 
 export class ReminderStore {
   private items: Reminder[] = [];
+  private delivering = new Set<string>();
   private timer?: ReturnType<typeof setInterval>;
 
   constructor(
@@ -76,13 +77,14 @@ export class ReminderStore {
     const current = this.now();
     const due = this.items.filter((r) => r.dueAt <= current);
     if (due.length === 0) return 0;
-    const dueIds = new Set(due.map((r) => r.id));
-    this.items = this.items.filter((r) => !dueIds.has(r.id));
-    this.save();
+    let delivered=0;
     for (const r of due) {
-      await this.onDue(r);
+      if(this.delivering.has(r.id))continue;
+      this.delivering.add(r.id);
+      try { await this.onDue(r); this.remove(r.id); delivered++; }
+      finally { this.delivering.delete(r.id); }
     }
-    return due.length;
+    return delivered;
   }
 
   start(intervalMs = 5000): void {
