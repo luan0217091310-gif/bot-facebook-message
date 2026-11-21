@@ -87,7 +87,8 @@ export function pageServices(m: Messenger, brain: Brain, opts: PageOptions) {
     push(en ? 'Book an appointment' : 'Đặt lịch hẹn', '/book');
     push(en ? 'Talk to staff' : 'Gặp nhân viên', '/human');
     if (!en || choices.length < 3) push(en ? 'Help' : 'Trợ giúp', '/help');
-    return choices.slice(0, 4);
+    // Yêu cầu: 2–3 bước tiếp theo sau mỗi câu trả lời.
+    return choices.slice(0, 3);
   }
 
   async function comment(e: Extract<PageEvent, { kind: 'comment' }>) {
