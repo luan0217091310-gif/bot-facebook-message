@@ -13,3 +13,6 @@
 - Tạo Page và app, cấp quyền, tạo token, lưu trong .env trên máy chủ.
 - Chuẩn bị tên miền HTTPS, người phụ trách quyền riêng tư, chính sách lưu giữ và tài khoản tester.
 - Kiểm tra opt-in và template được duyệt trên Page của bạn, ghi video App Review rồi chuyển Live khi được cấp quyền.
+
+### Giai đoạn 1
+Đã tách `createBrain`, hợp đồng `ChannelAdapter`, định danh Address và bộ chọn kênh. Adapter Messenger được nối ở Giai đoạn 2.

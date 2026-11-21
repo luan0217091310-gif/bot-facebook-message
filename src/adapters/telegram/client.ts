@@ -69,6 +69,19 @@ export function createTelegram(
     perChat: cfg.maxQueuePerThread, total: cfg.maxQueueTotal,
   });
   return {
+    channel: 'telegram' as const,
+    maxText: 4000,
+    split: splitMessage,
+    async media(id: string, type: 'image' | 'file', url: string) {
+      await limiter.acquire(id);
+      if (type === 'image') await bot.api.sendPhoto({ chat_id: id, photo: url });
+      else await bot.api.sendDocument({ chat_id: id, document: url });
+    },
+    async choices(msg: IncomingMessage, text: string, options: Array<{title: string; payload: string}>) {
+      await limiter.acquire(msg.threadId);
+      await bot.api.sendMessage({chat_id: msg.threadId, text: clean(text),
+        reply_markup: {keyboard: [options.map(o => ({text: o.title}))], one_time_keyboard: true, resize_keyboard: true}});
+    },
     send(msg: IncomingMessage, text: string, signal?: AbortSignal) {
       return sender(msg, text, signal ? AbortSignal.any([signal, lifecycle.signal]) : lifecycle.signal);
     },
