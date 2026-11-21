@@ -45,8 +45,8 @@ export function pageServices(m: Messenger, brain: Brain, opts: PageOptions) {
 
   async function handoff(id: string, en: boolean) {
     db.set(id, 'handoff', Date.now() + opts.handoffMinutes * 60000);
-    await m.text(id, en ? 'I’ve paused the bot and asked a staff member to join.' : 'Mình đã tạm dừng bot và báo nhân viên vào hỗ trợ bạn.');
-    await staff('Cần nhân viên hỗ trợ hội thoại ' + id);
+    await m.text(id, en ? 'I’ve asked a staff member to join; the bot will stay quiet for ' + opts.handoffMinutes + ' minutes. Type "exit" to talk to the bot again.' : 'Mình đã báo nhân viên vào hỗ trợ bạn, bot tạm im lặng ' + opts.handoffMinutes + ' phút. Muốn nói chuyện lại với bot, gõ "gặp bot".');
+    await staff('Khách ' + id + ' cần nhân viên hỗ trợ (bot tạm dừng ' + opts.handoffMinutes + ' phút).');
   }
 
   function data(id: string) {

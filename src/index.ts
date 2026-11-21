@@ -2,7 +2,7 @@ import 'dotenv/config';
 import {join} from 'node:path';
 import {createBrain} from './brain.js';
 import {createTelegram} from './adapters/telegram/client.js';
-import {createMessenger} from './adapters/messenger/adapter.js';
+import {createMessenger,inWindow} from './adapters/messenger/adapter.js';
 import {messengerConfig,pageBrainConfig} from './adapters/messenger/config.js';
 import {Graph} from './adapters/messenger/graph.js';
 import {notifications} from './adapters/messenger/notifications.js';
@@ -54,6 +54,10 @@ async function main() {
           linked:enabledChannels(process.env.ENABLED_CHANNELS).includes('telegram'),rate:cfg.userMessagesPerMinute,
           handoffMinutes:Number(process.env.HANDOFF_MINUTES??60),comments:process.env.FB_COMMENTS_ENABLED==='true',log,clean,
           async alert(s){log(s);repo.set('system','lastAlert',{at:Date.now(),text:clean(s)});
+            // Báo admin ngay trên Messenger (chỉ khi admin còn trong cửa sổ 24h, đúng chính sách Meta).
+            const link=page.PUBLIC_BASE_URL+'/dashboard';
+            await Promise.allSettled(page.ADMIN_PSIDS.filter(a=>inWindow(repo.get<number>(a,'last')))
+              .map(a=>messenger.text(a,clean('🔔 '+s+'\nXem & trả lời: '+link+' hoặc Hộp thư Page: https://business.facebook.com/latest/inbox'),undefined,'UPDATE')));
             const tg=telegram();if(tg){const admins=(process.env.ADMIN_TELEGRAM_IDS??'').split(',').map(x=>x.trim()).filter(Boolean);
               await Promise.allSettled(admins.map(id=>tg.notify(id,clean('🔔 [Messenger] '+s))));}},
           async transcribe(bytes,mime,name){
