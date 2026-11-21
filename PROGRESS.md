@@ -25,3 +25,28 @@
 
 ### Giai đoạn 4
 Worktree `.worktrees/messenger-production`, nhánh `feat/messenger-production`. Nghiệp vụ Page gồm STT, tài liệu riêng, FAQ có dẫn nguồn, gợi ý, Việt/Anh, chuyển nhân viên có hạn, phản hồi bình luận, đặt lịch có xác nhận, xuất/xoá dữ liệu và liên kết hai tài khoản. Test dùng provider giả. Không dùng Page thật.
+
+## Chia việc giữa các agent (2026-11-21)
+- Gốc chung: `feat/messenger-production` @ `fef7bb3`.
+- **Claude** — worktree `.worktrees/claude`, nhánh `claude/phase5-ops`: Giai đoạn 5 (vận hành) và 7 (hướng dẫn).
+- **Anti** — worktree `.worktrees/anti`, nhánh `anti/phase4-6`: phần còn lại Giai đoạn 4 (gợi ý quick reply, bình luận + Private Reply, nhận diện ngôn ngữ, thông báo chéo kênh) và Giai đoạn 6 (integration test webhook → Graph giả, trình giả lập chat `npm run simulate`).
+- Mỗi bên ghi tiến độ dưới mục mang tên mình để tránh xung đột khi merge. Merge lần lượt vào `feat/messenger-production`, rồi vào `main`.
+
+### Claude: Giai đoạn 5 + 7 (đã xong)
+- `src/core/docstore.ts`: repository (`FileDocStore`, `SqliteDocStore`, migration `core_migrations`). Mọi store lõi dùng `DocStore`. Muốn đổi sang PostgreSQL thì viết thêm một class implements `DocStore`.
+- `src/core/metrics.ts`, `src/core/logger.ts`, `src/core/env.ts`. `src/brain.ts` bọc llm/tools/send/handle để ghi số liệu.
+- `src/web/{server,auth,pages}.ts`: dashboard, `/privacy`, `/data-deletion`. Khi bật Messenger, các route gắn vào Fastify của webhook. Khi chỉ chạy Telegram, server riêng chỉ bật nếu có `DASHBOARD_PASSWORD`.
+- Triển khai: `Dockerfile`, `docker-compose.yml`, `deploy/Caddyfile`, `deploy/nginx.conf.example`, `deploy/bekane.service`, `.github/workflows/ci.yml`.
+- Test: `test/ops.test.ts` (migration, nhập file cũ, bền qua restart, metrics, env tiếng Việt, logger che bí mật, session/CSRF/brute-force, signed_request, dashboard API). Tổng 89/89 pass.
+- Kiểm tra: `npm run typecheck && npm test && npm run build`.
+
+### Giả định (Claude)
+- Mặc định `STORAGE=sqlite`. Dữ liệu cũ tự nhập ở lần đọc đầu, file cũ giữ nguyên nên quay lại được.
+- Data Deletion của Meta gửi ASID (không phải PSID): xoá được khi khớp, nếu không thì ghi nhận và báo admin xử lý thủ công trong 30 ngày.
+- Gửi ngoài 24h từ dashboard chỉ khi `FB_HUMAN_AGENT_ENABLED=true` (đã được Meta cấp) và trong 7 ngày.
+- Chưa chạy `docker build` trên máy này. Job `docker` trong CI sẽ kiểm tra.
+
+### VIỆC BẠN CẦN TỰ LÀM (bổ sung)
+- Đặt `DASHBOARD_PASSWORD`, `PRIVACY_OWNER`, `PRIVACY_CONTACT`, `DOMAIN` trong `.env` trên VPS.
+- Trỏ DNS tên miền về VPS, mở cổng 80/443, chạy `docker compose up -d --build`.
+- Khai báo `https://DOMAIN/privacy` và `https://DOMAIN/data-deletion` trong Cài đặt > Cơ bản của app Meta, quay video và nộp App Review theo mục 7 của hướng dẫn.
