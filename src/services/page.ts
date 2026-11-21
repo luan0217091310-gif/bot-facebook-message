@@ -29,6 +29,9 @@ interface PageOptions {
   clean: (s: string) => string;
 }
 
+/** Lệnh/câu thoát chung, khớp cả câu để không bắt nhầm câu hỏi bình thường. */
+const EXIT = /^(\/cancel|\/exit|\/thoat|\/bot|thoát|thoat|thoát ra|huỷ|hủy|huy|thôi|dừng lại|quay lại|gặp bot|nói chuyện với bot|exit|cancel|back to bot)$/i;
+
 const COMMENT_INTENT = /\?|tư vấn|tu van|liên hệ|lien he|inbox|\bib\b|contact|help|support|giá|bao giá|bao gia|báo giá|bao nhiêu|bao nhieu|đặt lịch|dat lich|hỗ trợ|ho tro|price|info|book/i;
 
 export function pageServices(m: Messenger, brain: Brain, opts: PageOptions) {
@@ -169,10 +172,14 @@ export function pageServices(m: Messenger, brain: Brain, opts: PageOptions) {
       ]);
       return true;
     }
-    if (cmd === '/cancel') {
-      db.remove(id, 'deleteUntil');
-      db.remove(id, 'bookingDraft');
-      await m.text(id, en ? 'Cancelled.' : 'Đã huỷ.');
+    // Lối thoát chung: dùng được ở MỌI chế độ (đặt lịch, đang mở tài liệu, chờ xác nhận xoá, đang chuyển người thật).
+    if (EXIT.test(cmd)) {
+      const was = ['bookingDraft', 'document', 'deleteUntil', 'handoff'].filter((k) => db.get(id, k) !== undefined);
+      for (const k of was) db.remove(id, k);
+      brain.dispatcher.cancel(id);
+      await m.text(id, was.length
+        ? (en ? 'Done, you’re back to normal chat with Bekane AI.' : 'Đã thoát, bạn quay lại trò chuyện bình thường với Bekane AI.')
+        : (en ? 'Nothing to cancel. Ask me anything!' : 'Không có gì cần huỷ. Bạn cứ hỏi mình nhé!'), suggest(en));
       return true;
     }
     if (['/data', 'xem dữ liệu của tôi', 'show my data'].includes(cmd)) {
@@ -213,8 +220,8 @@ export function pageServices(m: Messenger, brain: Brain, opts: PageOptions) {
       await m.text(
         id,
         (en
-          ? 'I’m Bekane AI. Send a question, file or voice message. Use /book, /faq, /data, /delete or /human.' + extraEn
-          : 'Mình là Bekane AI. Gửi câu hỏi, tệp hoặc tin thoại. Gõ /book, /faq, /data, /delete hoặc /human. Dùng /id để lấy PSID.' + extraVi),
+          ? 'I’m Bekane AI. Send a question, file or voice message. Use /book, /faq, /data, /delete or /human. Type "exit" to leave any mode.' + extraEn
+          : 'Mình là Bekane AI. Gửi câu hỏi, tệp hoặc tin thoại. Gõ /book, /faq, /data, /delete hoặc /human. Dùng /id để lấy PSID. Gõ "thoát" để thoát bất kỳ chế độ nào.' + extraVi),
         menu.map(([title, payload]) => ({ title, payload })),
       );
       return true;
@@ -234,8 +241,11 @@ export function pageServices(m: Messenger, brain: Brain, opts: PageOptions) {
       try {
         const f = await (opts.download ?? attachment)(a.fileId);
         if (a.kind === 'audio') {
-          msg.text = await opts.transcribe(f.bytes, f.mime, f.name);
-          if (!msg.text.trim()) throw new Error('Không nhận được lời nói.');
+          const heard = (await opts.transcribe(f.bytes, f.mime, f.name)).trim();
+          if (!heard) throw new Error('Không nhận được lời nói.');
+          // Cho khách thấy bot nghe được gì trước, rồi mới trả lời nội dung (khách sửa được nếu nghe sai).
+          await m.text(id, (en ? '🎤 I heard: ' : '🎤 Mình nghe được: ') + '“' + heard + '”');
+          msg.text = t ? t + '\n' + heard : heard;
           return false;
         }
         if (f.mime.startsWith('image/')) {

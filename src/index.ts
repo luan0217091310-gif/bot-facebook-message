@@ -8,7 +8,7 @@ import {Graph} from './adapters/messenger/graph.js';
 import {notifications} from './adapters/messenger/notifications.js';
 import {pageServices} from './services/page.js';
 import {accountLinks} from './services/links.js';
-import {toFile} from 'openai';
+import {transcribeAudio} from './services/stt.js';
 import {Repository} from './repository.js';
 import {loadConfig,type Config} from './config.js';
 import {createLogger,envSecrets} from './core/logger.js';
@@ -57,8 +57,11 @@ async function main() {
             const tg=telegram();if(tg){const admins=(process.env.ADMIN_TELEGRAM_IDS??'').split(',').map(x=>x.trim()).filter(Boolean);
               await Promise.allSettled(admins.map(id=>tg.notify(id,clean('🔔 [Messenger] '+s))));}},
           async transcribe(bytes,mime,name){
-            const file=await toFile(bytes,name.includes('.')?name:'voice.'+(mime.includes('ogg')?'ogg':'mp3'),{type:mime});
-            const r=await brain.client.audio.transcriptions.create({file,model:process.env.STT_MODEL??'whisper-1'});return r.text;
+            // Gemini không có whisper: dùng chính model chat để nghe; OpenAI dùng STT_MODEL (mặc định whisper-1).
+            const gemini=new URL(cfg.aiBaseUrl).hostname==='generativelanguage.googleapis.com';
+            const stt=process.env.STT_MODEL?.trim();
+            const model=gemini ? (stt && !stt.startsWith('whisper') ? stt : cfg.aiModel) : (stt||'whisper-1');
+            return transcribeAudio(bytes,mime,name,{baseUrl:cfg.aiBaseUrl,apiKey:cfg.aiApiKey,model});
           },
           async summarize(q,document,en){
             const r=await brain.client.chat.completions.create({model:cfg.aiModel,max_completion_tokens:cfg.maxOutputTokens,messages:[
