@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, sep } from 'node:path';
+import { basename, dirname, join, relative, sep } from 'node:path';
 
 /**
  * Lớp repository tối giản cho mọi store của lõi (history, facts, reminders, watches, settings).
@@ -87,7 +87,7 @@ export class SqliteDocStore implements DocStore {
 export interface DocRef { store: DocStore; name: string }
 export function docRef(target: string | DocRef): DocRef {
   if (typeof target !== 'string') return target;
-  return { store: new FileDocStore(dirname(target)), name: target.slice(dirname(target).length + 1) };
+  return { store: new FileDocStore(dirname(target)), name: basename(target) };
 }
 
 /** Nhập toàn bộ file trong data/ vào SQLite (dùng cho script migrate). */

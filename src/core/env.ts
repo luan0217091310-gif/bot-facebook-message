@@ -23,15 +23,16 @@ const HINT: Record<string, string> = {
 
 const nonEmpty = z.string().trim().min(1);
 const numericList = z.string().trim().regex(/^\d+(\s*,\s*\d+)*$/);
+const opt = <T extends z.ZodType>(t: T) => z.preprocess((v) => (typeof v === 'string' && !v.trim() ? undefined : v), t.optional());
 
 const schema = z.object({
-  ENABLED_CHANNELS: z.string().default('telegram').pipe(z.string().regex(/^\s*(telegram|messenger)(\s*,\s*(telegram|messenger))*\s*$/)),
+  ENABLED_CHANNELS: opt(z.string().regex(/^\s*(telegram|messenger)(\s*,\s*(telegram|messenger))*\s*$/)).default('telegram'),
   AI_API_KEY: nonEmpty,
-  AI_BASE_URL: z.url().optional(),
-  STORAGE: z.enum(['sqlite', 'file']).optional(),
-  LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error']).optional(),
-  DASHBOARD_PASSWORD: z.string().min(12).optional(),
-  PORT: z.coerce.number().int().min(1).max(65535).optional(),
+  AI_BASE_URL: opt(z.url()),
+  STORAGE: opt(z.enum(['sqlite', 'file'])),
+  LOG_LEVEL: opt(z.enum(['trace', 'debug', 'info', 'warn', 'error'])),
+  DASHBOARD_PASSWORD: opt(z.string().min(12)),
+  PORT: opt(z.coerce.number().int().min(1).max(65535)),
   TELEGRAM_BOT_TOKEN: z.string().optional(),
   TELEGRAM_BOT_USERNAME: z.string().optional(),
   ADMIN_TELEGRAM_IDS: z.string().optional(),
@@ -39,7 +40,7 @@ const schema = z.object({
   FB_PAGE_ACCESS_TOKEN: z.string().optional(),
   FB_APP_SECRET: z.string().optional(),
   FB_VERIFY_TOKEN: z.string().optional(),
-  GRAPH_API_VERSION: z.string().regex(/^v\d+\.\d+$/).optional(),
+  GRAPH_API_VERSION: opt(z.string().regex(/^v\d+\.\d+$/)),
   ADMIN_PSIDS: z.string().optional(),
   PUBLIC_BASE_URL: z.string().optional(),
 }).superRefine((env, ctx) => {

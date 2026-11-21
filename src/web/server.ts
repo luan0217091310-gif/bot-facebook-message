@@ -90,11 +90,12 @@ export function registerWeb(app: FastifyInstance, ctx: WebContext): void {
       const days = Math.min(90, Math.max(1, Number(req.query.days ?? 7) || 7));
       return Object.fromEntries(ctx.brains.map((b) => [b.adapter.channel, b.brain.metrics?.summary(days) ?? null]));
     });
-    api.get('/conversations', () => ctx.brains.flatMap(({ adapter, brain }) => brain.history.keys().map((id) => {
+    api.get('/conversations', () => ctx.brains.flatMap(({ adapter, brain }) => brain.history.keys().flatMap((id) => {
       const last = brain.history.recent(id).at(-1);
+      if (!last) return [];
       const db = adapter.channel === 'messenger' ? ctx.page?.messenger.db : undefined;
-      return { channel: adapter.channel, id, lastAt: last?.at ?? 0, preview: (last?.text ?? '').slice(0, 120),
-        paused: brain.settings.get(id.split('_')[0]!).paused, handoff: (db?.get<number>(id, 'handoff') ?? 0) > Date.now() };
+      return [{ channel: adapter.channel, id, lastAt: last.at, preview: last.text.slice(0, 120),
+        paused: brain.settings.get(id.split('_')[0]!).paused, handoff: (db?.get<number>(id, 'handoff') ?? 0) > Date.now() }];
     })).sort((a, b) => b.lastAt - a.lastAt).slice(0, 500));
 
     api.get<{ Params: { channel: string; id: string } }>('/conversations/:channel/:id', (req, res) => {

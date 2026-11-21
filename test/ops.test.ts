@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { createHmac } from 'node:crypto';
 import { Writable } from 'node:stream';
 import Fastify from 'fastify';
-import { SqliteDocStore, FileDocStore, importTree, migrate } from '../src/core/docstore.js';
+import { SqliteDocStore, FileDocStore, docRef, importTree, migrate } from '../src/core/docstore.js';
 import { Metrics } from '../src/core/metrics.js';
 import { ThreadHistory } from '../src/core/storage.js';
 import { ReminderStore } from '../src/core/scheduler.js';
@@ -48,6 +48,7 @@ describe('SQLite repository', () => {
     const h = new ThreadHistory(db, 10, 10000);
     expect(h.keys()).toEqual(['42']);
     expect(h.recent('42')[0]?.text).toBe('hi');
+    expect(docRef('facts.json').name).toBe('facts.json');
   });
 });
 
@@ -73,8 +74,11 @@ describe('Kiểm tra cấu hình', () => {
     expect(msg).toContain('PUBLIC_BASE_URL');
     expect(msg).not.toContain('supersecretvalue');
   });
-  it('chấp nhận cấu hình Telegram hợp lệ', () => {
-    expect(() => validateEnv({ AI_API_KEY: 'k', TELEGRAM_BOT_TOKEN: '123:' + 'a'.repeat(30), TELEGRAM_BOT_USERNAME: 'bk', ADMIN_TELEGRAM_IDS: '1,2' })).not.toThrow();
+  it('chấp nhận cấu hình Telegram hợp lệ và bỏ qua biến tuỳ chọn để trống từ .env.example', () => {
+    expect(() => validateEnv({
+      AI_API_KEY: 'k', TELEGRAM_BOT_TOKEN: '123:' + 'a'.repeat(30), TELEGRAM_BOT_USERNAME: 'bk', ADMIN_TELEGRAM_IDS: '1,2',
+      DASHBOARD_PASSWORD: '', AI_BASE_URL: '', STORAGE: '', LOG_LEVEL: '', PORT: '', GRAPH_API_VERSION: '',
+    })).not.toThrow();
   });
 });
 
