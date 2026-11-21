@@ -1,6 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { docRef, type DocRef } from './docstore.js';
 
 export interface Reminder {
   id: string;
@@ -18,21 +17,24 @@ export class ReminderStore {
   private delivering = new Set<string>();
   private timer?: ReturnType<typeof setInterval>;
 
+  private readonly ref: DocRef;
   constructor(
-    private readonly filePath: string,
+    filePath: string | DocRef,
     private readonly onDue?: (reminder: Reminder) => Promise<void> | void,
     private readonly now: () => number = Date.now,
   ) {
+    this.ref = docRef(filePath);
     this.load();
   }
 
   private load(): void {
-    if (!existsSync(this.filePath)) {
+    const raw = this.ref.store.read(this.ref.name);
+    if (!raw) {
       this.items = [];
       return;
     }
     try {
-      const parsed = JSON.parse(readFileSync(this.filePath, 'utf8'));
+      const parsed = JSON.parse(raw);
       this.items = Array.isArray(parsed) ? (parsed as Reminder[]) : [];
     } catch {
       this.items = [];
@@ -40,10 +42,7 @@ export class ReminderStore {
   }
 
   private save(): void {
-    mkdirSync(dirname(this.filePath), { recursive: true });
-    const tmp = `${this.filePath}.${process.pid}.${this.now()}.tmp`;
-    writeFileSync(tmp, JSON.stringify(this.items, null, 2), 'utf8');
-    renameSync(tmp, this.filePath);
+    this.ref.store.write(this.ref.name, JSON.stringify(this.items, null, 2));
   }
 
   add(input: Omit<Reminder, 'id' | 'createdAt'>): Reminder {

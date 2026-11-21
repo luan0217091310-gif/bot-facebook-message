@@ -1,0 +1,11 @@
+# Caddy tự xin và gia hạn chứng chỉ HTTPS (Let's Encrypt) cho {$DOMAIN}.
+# Dùng với docker-compose (upstream "bot:3000") hoặc trên VPS chạy systemd: đổi thành 127.0.0.1:3000.
+{$DOMAIN} {
+	encode gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+	}
+	reverse_proxy {$UPSTREAM:bot:3000}
+}

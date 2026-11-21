@@ -1,6 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { docRef, type DocRef } from './docstore.js';
 import { assertPublicHttpUrl, htmlToCleanText, safeFetch } from './net.js';
 
 export interface WatchedSite {
@@ -27,23 +26,26 @@ export class WatchStore {
   private sites: WatchedSite[] = [];
   private timer?: ReturnType<typeof setInterval>;
 
+  private readonly ref: DocRef;
   constructor(
-    private readonly filePath: string,
+    filePath: string | DocRef,
     private readonly onChanged?: (site: WatchedSite, preview: string) => Promise<void> | void,
     private readonly fetchFn: typeof fetch = fetch,
     private readonly now: () => number = Date.now,
     private readonly cooldownMs = 5 * 60 * 1000,
   ) {
+    this.ref = docRef(filePath);
     this.load();
   }
 
   private load(): void {
-    if (!existsSync(this.filePath)) {
+    const raw = this.ref.store.read(this.ref.name);
+    if (!raw) {
       this.sites = [];
       return;
     }
     try {
-      const parsed = JSON.parse(readFileSync(this.filePath, 'utf8'));
+      const parsed = JSON.parse(raw);
       this.sites = Array.isArray(parsed) ? (parsed as WatchedSite[]) : [];
     } catch {
       this.sites = [];
@@ -51,10 +53,7 @@ export class WatchStore {
   }
 
   private save(): void {
-    mkdirSync(dirname(this.filePath), { recursive: true });
-    const tmp = `${this.filePath}.${process.pid}.${this.now()}.tmp`;
-    writeFileSync(tmp, JSON.stringify(this.sites, null, 2), 'utf8');
-    renameSync(tmp, this.filePath);
+    this.ref.store.write(this.ref.name, JSON.stringify(this.sites, null, 2));
   }
 
   async add(input: { url: string; label?: string; threadId: string; topicId?: number }): Promise<WatchedSite> {
