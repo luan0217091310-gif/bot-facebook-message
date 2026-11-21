@@ -368,6 +368,7 @@ export function createDispatcher(deps: DispatcherDeps) {
   }
   return {
     handle: submit,
+    cancel(key:string){queue.cancel(key);pending.take(key);},
     async close() { closed = true; queue.close(); await Promise.allSettled([...tasks]); },
     stats,
   };

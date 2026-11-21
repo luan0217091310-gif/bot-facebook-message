@@ -1,6 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { docRef, type DocRef } from './docstore.js';
 
 export type Confidence = 'true' | 'joke' | 'unsure';
 
@@ -28,20 +27,23 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export class FactStore {
   private facts: Fact[] = [];
 
+  private readonly ref: DocRef;
   constructor(
-    private readonly filePath: string,
+    filePath: string | DocRef,
     private readonly now: () => number = Date.now,
   ) {
+    this.ref = docRef(filePath);
     this.load();
   }
 
   private load(): void {
-    if (!existsSync(this.filePath)) {
+    const raw = this.ref.store.read(this.ref.name);
+    if (!raw) {
       this.facts = [];
       return;
     }
     try {
-      const parsed = JSON.parse(readFileSync(this.filePath, 'utf8'));
+      const parsed = JSON.parse(raw);
       this.facts = Array.isArray(parsed) ? (parsed as Fact[]) : [];
     } catch {
       this.facts = [];
@@ -49,11 +51,7 @@ export class FactStore {
   }
 
   private save(): void {
-    const dir = dirname(this.filePath);
-    mkdirSync(dir, { recursive: true });
-    const tmp = `${this.filePath}.${process.pid}.${this.now()}.tmp`;
-    writeFileSync(tmp, JSON.stringify(this.facts, null, 2), 'utf8');
-    renameSync(tmp, this.filePath);
+    this.ref.store.write(this.ref.name, JSON.stringify(this.facts, null, 2));
   }
 
   private inScope(fact: Fact, scope: FactScope): boolean {
@@ -99,6 +97,11 @@ export class FactStore {
 
   countActive(): number {
     return this.facts.filter((f) => !f.tombstone).length;
+  }
+
+  eraseThread(threadId:string):void {
+    this.facts=this.facts.filter(f=>f.threadId!==threadId);
+    this.save();
   }
 
   search(scope: FactScope, limit = 30): Array<Fact & { stale: boolean }> {

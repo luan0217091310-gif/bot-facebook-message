@@ -1,4 +1,58 @@
-# 🤖 Bekane Bot — Telegram AI Agent Đa Năng & Chuyên Sâu
+# 🤖 Bekane Bot: AI Agent đa kênh (Telegram + Facebook Messenger)
+
+> Một "bộ não" dùng chung cho mọi kênh. Thêm kênh mới (Zalo, Instagram, Discord, web chat) chỉ cần viết thêm adapter.
+> Hướng dẫn đưa lên Messenger từng bước: **[docs/messenger/HUONG-DAN-MESSENGER.md](docs/messenger/HUONG-DAN-MESSENGER.md)**
+
+## Kiến trúc
+
+```mermaid
+flowchart LR
+  TG[Telegram<br/>long-polling] --> AT[Adapter Telegram]
+  FB[Messenger<br/>Webhook HTTPS] -->|kiểm X-Hub-Signature-256| AM[Adapter Messenger<br/>inbox SQLite + Send API]
+  AT & AM --> D[Dispatcher<br/>chống trùng · hàng đợi · HITL · rate limit]
+  D --> A[Agent<br/>vòng gọi tool · MAX_ROUNDS]
+  A --> L[LLM<br/>OpenAI / Gemini]
+  A --> T[Tools<br/>web, fetch, nhớ, nhắc, theo dõi]
+  D & T --> M[(Repository SQLite<br/>history · facts · reminders · watches · metrics)]
+  AM --> P[Dịch vụ Page<br/>thoại · tệp · FAQ · đặt lịch · chuyển người thật · bình luận]
+  W[Web: /health · /dashboard · /privacy · /data-deletion] --> M
+```
+
+## Tính năng theo kênh
+
+| Tính năng | Telegram | Messenger |
+|---|:-:|:-:|
+| Chat AI, nhìn ảnh, 11 tool | ✅ | ✅ |
+| Nhóm, topic, `/mode`, bộ nhớ nhóm | ✅ | ➖ (Page chỉ chat 1-1) |
+| Xác nhận thao tác nguy hiểm | gõ `ok`/`thôi` | nút Đồng ý / Huỷ (vẫn hiểu khi gõ) |
+| Lệnh | slash command | Persistent Menu, Get Started, Ice Breakers, Quick Replies + gõ tay |
+| Nhắc lịch, theo dõi web | gửi bất kỳ lúc nào | theo cửa sổ 24h, opt-in, nhắc bị lỡ, chuyển qua Telegram |
+| Tin nhắn thoại → văn bản | | ✅ |
+| Đọc PDF/DOCX/TXT, hỏi đáp trên tệp | | ✅ |
+| Kho kiến thức có dẫn nguồn | | ✅ |
+| Gợi ý quick reply, chuyển người thật, đặt lịch hẹn | | ✅ |
+| Tự trả lời bình luận + Private Reply | | ✅ |
+| Việt/Anh tự động, xem/xoá dữ liệu của tôi | | ✅ |
+| Dashboard admin, thống kê, log có cấu trúc | ✅ | ✅ |
+
+## Chạy nhanh
+
+```bash
+npm ci && cp .env.example .env   # điền biến, xem chú thích trong file
+npm test && npm run dev          # ENABLED_CHANNELS=telegram,messenger
+docker compose up -d --build     # production với Caddy HTTPS
+```
+
+| Lệnh | Ý nghĩa |
+|---|---|
+| `npm run typecheck` / `npm test` / `npm run build` | kiểm tra kiểu / chạy test / build |
+| `npm run messenger:setup` | cài menu, nút Bắt đầu, lời chào Messenger |
+| `npm run data:migrate` | chuyển dữ liệu JSON cũ sang SQLite (không xoá file cũ) |
+
+---
+
+## Tài liệu gốc của bản Telegram
+
 
 > **Tác giả / Chủ sở hữu:** **Phùng Hữu Luân** (`@bekane_bot`)  
 > **Repository:** [github.com/luan0217091310-gif/setup-bot-tele](https://github.com/luan0217091310-gif/setup-bot-tele)  
