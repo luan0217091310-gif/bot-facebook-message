@@ -81,6 +81,10 @@ export class GroupSettings {
   get(chatId: string): { paused: boolean; mode: 'all' | 'mention' } {
     return this.settings[chatId] ?? { paused: false, mode: this.defaultMode };
   }
+  remove(chatId:string):void {
+    delete this.settings[chatId];
+    atomicWrite(this.path,JSON.stringify(this.settings));
+  }
   set(chatId: string, change: Partial<{ paused: boolean; mode: 'all' | 'mention' }>): void {
     const next = settingsSchema.parse({ ...this.settings, [chatId]: { ...this.get(chatId), ...change } });
     atomicWrite(this.path, JSON.stringify(next, null, 2));

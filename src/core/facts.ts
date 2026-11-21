@@ -101,6 +101,11 @@ export class FactStore {
     return this.facts.filter((f) => !f.tombstone).length;
   }
 
+  eraseThread(threadId:string):void {
+    this.facts=this.facts.filter(f=>f.threadId!==threadId);
+    this.save();
+  }
+
   search(scope: FactScope, limit = 30): Array<Fact & { stale: boolean }> {
     const now = this.now();
     return this.facts

@@ -75,7 +75,7 @@ export function createBrain(cfg: Config, adapter: ChannelAdapter, clean: (s: str
   reminders.start();
   watches.start();
 
-  return { dispatcher, history, settings, facts, reminders, watches,
+  return { dispatcher, history, settings, facts, reminders, watches, client,
     async close() { reminders.stop(); watches.stop(); await dispatcher.close(); },
   };
 }

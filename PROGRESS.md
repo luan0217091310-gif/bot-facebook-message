@@ -22,3 +22,6 @@
 
 ### Giai đoạn 3
 Đã nối nút HITL, admin PSID, lệnh riêng, ảnh, lịch và theo dõi. OTN gắn theo Page, PSID và job. Khi thiếu quyền gửi, lưu thông báo bị lỡ để trả ở lần tương tác tiếp.
+
+### Giai đoạn 4
+Worktree `.worktrees/messenger-production`, nhánh `feat/messenger-production`. Nghiệp vụ Page gồm STT, tài liệu riêng, FAQ có dẫn nguồn, gợi ý, Việt/Anh, chuyển nhân viên có hạn, phản hồi bình luận, đặt lịch có xác nhận, xuất/xoá dữ liệu và liên kết hai tài khoản. Test dùng provider giả. Không dùng Page thật.

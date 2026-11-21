@@ -85,7 +85,7 @@ export function createMessenger(graph:Graph,db:Repository,log:(s:string)=>void) 
   const lifetime=new Promise<void>(resolve=>{finish=resolve;});
   const adapter:ChannelAdapter={
     channel:'messenger',maxText:1999,split:splitMessenger,
-    send:(m,s,signal)=>text(m.threadId,s,undefined,'RESPONSE',signal),
+    send:(m,s,signal)=>text(m.threadId,s,replyChoices?.(m,s),'RESPONSE',signal),
     choices:(m,s,options)=>text(m.threadId,s,options),
     media:(id,type,url)=>send(id,{attachment:{type,payload:{url}}}),
     notify:(id,s)=>text(id,s,undefined,'UPDATE'),
@@ -97,7 +97,9 @@ export function createMessenger(graph:Graph,db:Repository,log:(s:string)=>void) 
     stop(){stopped=true;clearInterval(timer);finish();},
     async close(){stopped=true;clearInterval(timer);await app.close();await Promise.allSettled(active.values());},
   };
+  let replyChoices:((msg:IncomingMessage,text:string)=>Choice[]|undefined)|undefined;
   return {adapter,app,db,graph,text,guard, pump,bind(handler:NonNullable<typeof receive>){receive=handler;},
+    suggestions(handler:NonNullable<typeof replyChoices>){replyChoices=handler;},
     use(handler:NonNullable<typeof onEvent>){onEvent=handler;},after(handler:NonNullable<typeof afterChat>){afterChat=handler;},
     observe(handler:NonNullable<typeof onText>){onText=handler;},
     async template(id:string,template_type:'button'|'generic',body:object) {await send(id,{attachment:{type:'template',payload:{template_type,...body}}});}};
