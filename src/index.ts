@@ -1,24 +1,43 @@
 import 'dotenv/config';
-import { createBrain } from './brain.js';
-import { createTelegram } from './adapters/telegram/client.js';
-import { loadConfig } from './config.js';
-import { redact } from './core/redact.js';
-import { enabledChannels } from './channel.js';
+import {join} from 'node:path';
+import {createBrain} from './brain.js';
+import {createTelegram} from './adapters/telegram/client.js';
+import {createMessenger} from './adapters/messenger/adapter.js';
+import {messengerConfig,pageBrainConfig} from './adapters/messenger/config.js';
+import {Graph} from './adapters/messenger/graph.js';
+import {Repository} from './repository.js';
+import {loadConfig,type Config} from './config.js';
+import {redact} from './core/redact.js';
+import {enabledChannels,type ChannelAdapter} from './channel.js';
 
-const clean = (s: string) => redact(s, Object.entries(process.env)
-  .filter(([k,v]) => v && /TOKEN|SECRET|API_KEY|PASSWORD/.test(k)).map(([,v]) => v!));
-const log = (s: string) => console.log(clean(s));
-
+const clean=(s:string)=>redact(s,Object.entries(process.env).filter(([k,v])=>v && /TOKEN|SECRET|API_KEY|PASSWORD/.test(k)).map(([,v])=>v!));
+const log=(s:string)=>console.log(clean(s));
 async function main() {
-  const channels = enabledChannels(process.env.ENABLED_CHANNELS);
-  if (channels.includes('messenger')) throw new Error('Adapter Messenger chưa được cài.');
-  const cfg = loadConfig(process.env);
-  const adapter = createTelegram(cfg, clean, log);
-  const brain = createBrain(cfg, adapter, clean, log);
-  const stop = () => adapter.stop();
-  process.once('SIGTERM', stop);
-  process.once('SIGINT', stop);
-  try { await adapter.start(brain.dispatcher.handle); }
-  finally { stop(); await brain.close(); await adapter.close(); }
+  const entries:Array<{adapter:ChannelAdapter;brain:ReturnType<typeof createBrain>}>=[];
+  let db:Repository|undefined;
+  const add=(cfg:Config,adapter:ChannelAdapter)=>{
+    const brain=createBrain(cfg,adapter,clean,log);
+    entries.push({adapter,brain}); return brain;
+  };
+  const stop=()=>entries.forEach(e=>e.adapter.stop());
+  process.once('SIGTERM',stop);process.once('SIGINT',stop);
+  try {
+    for(const channel of enabledChannels(process.env.ENABLED_CHANNELS)) {
+      if(channel==='telegram') {
+        const cfg=loadConfig(process.env);
+        add(cfg,createTelegram(cfg,clean,log));
+      } else {
+        const page=messengerConfig(process.env), cfg=pageBrainConfig(process.env,page);
+        db=new Repository(join(cfg.dataDir,'page.sqlite'));
+        const messenger=createMessenger(new Graph(page),db,log);
+        add(cfg,messenger.adapter);
+      }
+    }
+    await Promise.race(entries.map(e=>e.adapter.start(e.brain.dispatcher.handle)));
+  } finally {
+    stop();
+    await Promise.allSettled(entries.map(async e=>{await e.brain.close();await e.adapter.close();}));
+    db?.close();
+  }
 }
-main().catch(error => { log(String(error)); process.exitCode = 1; });
+main().catch(error=>{log(String(error));process.exitCode=1;});

@@ -16,3 +16,6 @@
 
 ### Giai đoạn 1
 Đã tách `createBrain`, hợp đồng `ChannelAdapter`, định danh Address và bộ chọn kênh. Adapter Messenger được nối ở Giai đoạn 2.
+
+### Giai đoạn 2
+Đã nối Messenger và Telegram vào cùng createBrain, thêm Fastify webhook, inbox SQLite, Graph, menu, chữ ký, parse attachment và cấu hình theo Page. Tiếp theo nối chính sách gửi chủ động và lệnh riêng.

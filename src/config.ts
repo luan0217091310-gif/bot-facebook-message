@@ -31,8 +31,8 @@ const list = (v: string | undefined): string[] =>
 
 const orDefault = (v: string | undefined, d: string): string => (v?.trim() ? v.trim() : d);
 
-export function loadConfig(env: Record<string, string | undefined>): Config {
-  const required = ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_BOT_USERNAME', 'AI_API_KEY', 'ADMIN_TELEGRAM_IDS'];
+export function loadConfig(env: Record<string, string | undefined>, channel: 'telegram' | 'messenger' = 'telegram'): Config {
+  const required = channel === 'messenger' ? ['AI_API_KEY'] : ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_BOT_USERNAME', 'AI_API_KEY', 'ADMIN_TELEGRAM_IDS'];
   const missing = required.filter((k) => !env[k]?.trim());
   if (missing.length) throw new Error(`Missing required env vars: ${missing.join(', ')}`);
 
@@ -59,13 +59,13 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
   };
   const adminIds = list(env.ADMIN_TELEGRAM_IDS);
   const allowedGroups = list(env.ALLOWED_GROUPS);
-  if (!adminIds.length || adminIds.some((id) => !/^[1-9]\d*$/.test(id))) {
+  if (channel === 'telegram' && (!adminIds.length || adminIds.some((id) => !/^[1-9]\d*$/.test(id)))) {
     throw new Error('Invalid ADMIN_TELEGRAM_IDS: use numeric Telegram user IDs');
   }
   if (allowedGroups.some((id) => !/^-\d+$/.test(id))) {
     throw new Error('Invalid ALLOWED_GROUPS: use negative Telegram group IDs');
   }
-  const botUsername = env.TELEGRAM_BOT_USERNAME!.trim().replace(/^@/, '');
+  const botUsername = (env.TELEGRAM_BOT_USERNAME ?? 'bekane').trim().replace(/^@/, '');
   if (!/^[a-z0-9_]+$/i.test(botUsername)) throw new Error('Invalid TELEGRAM_BOT_USERNAME');
   const aiBaseUrl = orDefault(env.AI_BASE_URL, 'https://api.openai.com/v1');
   const endpoint = new URL(aiBaseUrl);
@@ -74,7 +74,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
   }
 
   return {
-    telegramToken: env.TELEGRAM_BOT_TOKEN!.trim(),
+    telegramToken: (env.TELEGRAM_BOT_TOKEN ?? '').trim(),
     botUsername,
     botAliases: list(env.BOT_ALIASES).map((a) => a.replace(/^@/, '').toLowerCase()),
     adminIds: new Set(adminIds),

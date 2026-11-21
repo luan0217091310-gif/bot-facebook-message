@@ -1,4 +1,4 @@
-export interface FileAttachment { kind: 'photo' | 'document'; fileId: string; mimeType?: string; fileName?: string }
+export interface FileAttachment { kind: 'photo' | 'document' | 'audio' | 'video' | 'sticker'; fileId: string; mimeType?: string; fileName?: string }
 
 export interface IncomingMessage {
   threadId: string;
