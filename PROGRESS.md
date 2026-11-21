@@ -58,3 +58,36 @@ Worktree `.worktrees/messenger-production`, nhánh `feat/messenger-production`. 
 - Đặt `DASHBOARD_PASSWORD`, `PRIVACY_OWNER`, `PRIVACY_CONTACT`, `DOMAIN` trong `.env` trên VPS.
 - Trỏ DNS tên miền về VPS, mở cổng 80/443, chạy `docker compose up -d --build`.
 - Khai báo `https://DOMAIN/privacy` và `https://DOMAIN/data-deletion` trong Cài đặt > Cơ bản của app Meta, quay video và nộp App Review theo mục 7 của hướng dẫn.
+
+## Trạng thái chạy thật (2026-11-21)
+- Bot Messenger chạy trên máy Windows của chủ Page (cổng 3100, vì cổng 3000 bị Grafana chiếm), mở ra ngoài bằng Cloudflare quick tunnel (URL `*.trycloudflare.com`, ĐỔI mỗi lần khởi động lại).
+- Page: Bekanebot, **Page ID thật = 1493463383840156** (khác ID trên link profile.php). App Meta: bekanebot (App ID 1190094460643584), chế độ **Development**.
+- AI: Gemini qua endpoint tương thích OpenAI, model `gemini-3.1-flash-lite`. STT dùng Gemini generateContent (`src/services/stt.ts`).
+- Page đã đăng ký webhook bằng API `POST /{page}/subscribed_apps` (nút "Add Subscriptions" trên web không lưu được vì token thiếu `pages_manage_metadata`).
+- Token Page chỉ có `pages_messaging` → chưa dùng được trả lời bình luận (cần `pages_read_engagement`, `pages_manage_engagement`).
+- App Secret và Page token đã từng gửi qua chat → PHẢI Reset/Generate lại trước khi chạy thật.
+- Admin PSID: 29934953832755967.
+
+## Vì sao người ngoài chưa nhắn được
+App ở chế độ Development: Meta chỉ chuyển tin của người có vai trò trong app (Admin/Developer/Tester). Muốn công khai phải qua App Review quyền `pages_messaging` rồi chuyển app sang Live.
+
+## KẾ HOẠCH PHIÊN TIẾP THEO (theo thứ tự)
+### A. Mở công khai (P0)
+1. Địa chỉ cố định: tên miền (gợi ý `.id.vn`) → Cloudflare (gói Free) → `cloudflared tunnel login/create/route dns` → cài tunnel thành Windows service; hoặc VPS + `docker compose up -d`.
+2. Script tự khởi động bot khi bật máy (Task Scheduler) + script `scripts/update-webhook` cập nhật Callback URL qua Graph API `POST /{app-id}/subscriptions` (dùng `app_id|app_secret`) để không phải dán tay.
+3. Điền Basic settings: Privacy URL `/privacy`, Data deletion callback `/data-deletion`, icon 1024×1024, Category, PRIVACY_OWNER/PRIVACY_CONTACT.
+4. Reset App Secret + tạo Page token mới (sau khi cấp đủ quyền) → `.env`.
+5. Business Verification nếu Meta yêu cầu; quay video demo; nộp App Review `pages_messaging` (+ `pages_manage_metadata`; + engagement nếu bật bình luận); khi duyệt → Publish → Live.
+### B. Chất lượng trả lời (P1)
+6. Persona riêng cho Messenger (CSKH lịch sự, xưng em–anh/chị), tách khỏi persona Telegram: `PERSONA_PATH` riêng cho Page.
+7. Kho kiến thức: nạp PDF/DOCX từ dashboard (dùng `extract()`), chia đoạn tốt hơn, hiển thị nguồn gọn.
+8. Đặt lịch: hiểu ngày giờ tự nhiên ("9h sáng thứ 7") thành thời điểm cụ thể, kiểm tra không ở quá khứ, tự đặt lời nhắc trước giờ hẹn, danh sách lịch hẹn trên dashboard (xác nhận/huỷ).
+### C. Vận hành (P1)
+9. Dashboard: thông báo realtime (tự tải lại), lọc khách đang chờ nhân viên, xuất CSV lịch hẹn.
+10. Cảnh báo admin khi Graph báo token hết hạn/bị chặn; ghi lỗi vào thống kê.
+11. Sao lưu `data/` hằng ngày (scripts/backup).
+### D. Nâng cao (P2)
+12. Trả lời bằng giọng nói (TTS) khi khách gửi tin thoại.
+13. Thẻ sản phẩm (generic template) có ảnh/giá/nút.
+14. Trả lời bình luận + Private Reply (sau khi có quyền engagement).
+15. Kênh mới: Zalo OA / Instagram qua ChannelAdapter.
