@@ -40,7 +40,7 @@ async function main() {
         const notices=notifications(messenger,{otn:process.env.FB_OTN_ENABLED==='true',log,fallback:async(id,text)=>{
           const dest=repo.get<string>(id,'telegram'),tg=telegram();
           if(!dest||!tg)return false;
-          await tg.notify(dest,clean(text));return true;
+          await tg.notify(dest,clean('📩 [Messenger] '+text));return true;
         }});
         Object.assign(messenger.adapter,{notify:notices.notify,plan:notices.plan});
         const brain=add(cfg,messenger.adapter);
@@ -48,7 +48,8 @@ async function main() {
           linked:enabledChannels(process.env.ENABLED_CHANNELS).includes('telegram'),rate:cfg.userMessagesPerMinute,
           handoffMinutes:Number(process.env.HANDOFF_MINUTES??60),comments:process.env.FB_COMMENTS_ENABLED==='true',log,clean,
           async alert(s){log(s);repo.set('system','lastAlert',{at:Date.now(),text:clean(s)});
-            const tg=telegram();if(tg)for(const id of (process.env.ADMIN_TELEGRAM_IDS??'').split(',').map(s=>s.trim()).filter(Boolean))await tg.notify(id,clean(s));},
+            const tg=telegram();if(tg){const admins=(process.env.ADMIN_TELEGRAM_IDS??'').split(',').map(x=>x.trim()).filter(Boolean);
+              await Promise.allSettled(admins.map(id=>tg.notify(id,clean('🔔 [Messenger] '+s))));}},
           async transcribe(bytes,mime,name){
             const file=await toFile(bytes,name.includes('.')?name:'voice.'+(mime.includes('ogg')?'ogg':'mp3'),{type:mime});
             const r=await brain.client.audio.transcriptions.create({file,model:process.env.STT_MODEL??'whisper-1'});return r.text;
@@ -64,7 +65,7 @@ async function main() {
         messenger.suggestions((msg,reply)=>{
           if(msg.text.startsWith('/'))return undefined;
           const en=repo.get<string>(msg.senderId,'language')==='en';
-          return services.suggest(en);
+          return services.suggest(en,{text:msg.text,reply,hasDocument:Boolean(repo.get(msg.senderId,'document'))});
         });
         messenger.after(async msg=>{
           const last=brain.history.recent(msg.threadId).at(-1);
@@ -81,7 +82,11 @@ async function main() {
     await Promise.race(entries.map(e=>e.adapter.start(async msg=>{
       if(e.adapter.channel==='telegram' && !msg.isGroup && msg.text.startsWith('/link ')){
         const ok=links?.redeem(msg);
-        await e.adapter.send(msg,ok?'Đã liên kết để nhận nhắc lỡ.':'Mã liên kết không hợp lệ hoặc đã hết hạn.');return;
+        await e.adapter.send(msg,ok?'Đã liên kết để nhận nhắc lỡ từ Messenger.':'Mã liên kết không hợp lệ hoặc đã hết hạn.');return;
+      }
+      if(e.adapter.channel==='telegram' && !msg.isGroup && msg.text.trim()==='/unlink'){
+        const ok=links?.unlinkTelegram(msg.senderId);
+        await e.adapter.send(msg,ok?'Đã ngắt liên kết với Messenger Page.':'Tài khoản Telegram này chưa liên kết với Page nào.');return;
       }
       await e.brain.dispatcher.handle(msg);
     })));
