@@ -1,5 +1,4 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { FileDocStore, type DocStore } from './docstore.js';
 import { z } from 'zod';
 import type { IncomingMessage } from '../types.js';
 
@@ -10,19 +9,7 @@ export function scopeKey(msg: Pick<IncomingMessage, 'threadId' | 'topicId'>): st
   return `${msg.threadId}${msg.topicId === undefined ? '' : `_${msg.topicId}`}`;
 }
 
-function atomicWrite(path: string, text: string): void {
-  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-  writeFileSync(`${path}.tmp`, text, { mode: 0o600 });
-  renameSync(`${path}.tmp`, path);
-}
-
-function readOptional(path: string): string {
-  try { return readFileSync(path, 'utf8'); }
-  catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return '';
-    throw error;
-  }
-}
+const store = (d: string | DocStore): DocStore => typeof d === 'string' ? new FileDocStore(d) : d;
 
 const entrySchema = z.object({
   role: z.enum(['user', 'assistant']), text: z.string(), at: z.number(),
@@ -33,14 +20,18 @@ const entrySchema = z.object({
 export type HistoryEntry = z.infer<typeof entrySchema>;
 
 export class ThreadHistory {
-  constructor(private dataDir: string, private limit: number, private maxChars: number) {}
+  private docs: DocStore;
+  constructor(dataDir: string | DocStore, private limit: number, private maxChars: number) { this.docs = store(dataDir); }
   private path(key: string): string {
     if (!/^-?\d+(?:_\d+)?$/.test(key)) throw new Error('Invalid history key');
-    return join(this.dataDir, 'threads', key, 'history.jsonl');
+    return `threads/${key}/history.jsonl`;
+  }
+  keys(): string[] {
+    return (this.docs.list?.('threads/') ?? []).map((n) => n.split('/')[1]!).filter(Boolean);
   }
   recent(key: string): HistoryEntry[] {
     const entries: HistoryEntry[] = [];
-    for (const line of readOptional(this.path(key)).split('\n')) {
+    for (const line of this.docs.read(this.path(key)).split('\n')) {
       if (!line.trim()) continue;
       try {
         const parsed = entrySchema.safeParse(JSON.parse(line));
@@ -62,9 +53,9 @@ export class ThreadHistory {
   }
   append(key: string, entry: HistoryEntry): void {
     const entries = this.bound([...this.recent(key), entrySchema.parse(entry)]);
-    atomicWrite(this.path(key), entries.map((item) => JSON.stringify(item)).join('\n') + '\n');
+    this.docs.write(this.path(key), entries.map((item) => JSON.stringify(item)).join('\n') + '\n');
   }
-  clear(key: string): void { atomicWrite(this.path(key), ''); }
+  clear(key: string): void { this.docs.write(this.path(key), ''); }
 }
 
 const settingsSchema = z.record(z.string().regex(/^-?\d+$/), z.object({
@@ -72,10 +63,11 @@ const settingsSchema = z.record(z.string().regex(/^-?\d+$/), z.object({
 }));
 export class GroupSettings {
   private settings: z.infer<typeof settingsSchema>;
-  private path: string;
-  constructor(dataDir: string, private defaultMode: 'all' | 'mention') {
-    this.path = join(dataDir, 'group-settings.json');
-    const raw = readOptional(this.path);
+  private path = 'group-settings.json';
+  private docs: DocStore;
+  constructor(dataDir: string | DocStore, private defaultMode: 'all' | 'mention') {
+    this.docs = store(dataDir);
+    const raw = this.docs.read(this.path);
     this.settings = raw ? settingsSchema.parse(JSON.parse(raw)) : {};
   }
   get(chatId: string): { paused: boolean; mode: 'all' | 'mention' } {
@@ -83,11 +75,11 @@ export class GroupSettings {
   }
   remove(chatId:string):void {
     delete this.settings[chatId];
-    atomicWrite(this.path,JSON.stringify(this.settings));
+    this.docs.write(this.path,JSON.stringify(this.settings));
   }
   set(chatId: string, change: Partial<{ paused: boolean; mode: 'all' | 'mention' }>): void {
     const next = settingsSchema.parse({ ...this.settings, [chatId]: { ...this.get(chatId), ...change } });
-    atomicWrite(this.path, JSON.stringify(next, null, 2));
+    this.docs.write(this.path, JSON.stringify(next, null, 2));
     this.settings = next;
   }
 }

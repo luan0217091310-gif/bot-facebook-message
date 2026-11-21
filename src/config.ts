@@ -24,12 +24,20 @@ export interface Config {
   maxQueueTotal: number;
   maxQueueWaitMs: number;
   userMessagesPerMinute: number;
+  storage: 'sqlite' | 'file';
+  aiCostPerMToken: number;
 }
 
 const list = (v: string | undefined): string[] =>
   (v ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 
 const orDefault = (v: string | undefined, d: string): string => (v?.trim() ? v.trim() : d);
+
+function storageOf(v: string | undefined): 'sqlite' | 'file' {
+  const s = orDefault(v, 'sqlite');
+  if (s !== 'sqlite' && s !== 'file') throw new Error('Invalid STORAGE: must be sqlite or file');
+  return s;
+}
 
 export function loadConfig(env: Record<string, string | undefined>, channel: 'telegram' | 'messenger' = 'telegram'): Config {
   const required = channel === 'messenger' ? ['AI_API_KEY'] : ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_BOT_USERNAME', 'AI_API_KEY', 'ADMIN_TELEGRAM_IDS'];
@@ -99,5 +107,7 @@ export function loadConfig(env: Record<string, string | undefined>, channel: 'te
     maxQueueTotal: positive('MAX_QUEUE_TOTAL', 100, 1000),
     maxQueueWaitMs: positive('MAX_QUEUE_WAIT_MS', 90000, 600000),
     userMessagesPerMinute: positive('USER_MESSAGES_PER_MINUTE', 10, 120),
+    storage: storageOf(env.STORAGE),
+    aiCostPerMToken: Number(orDefault(env.AI_COST_PER_MTOKEN, '0.3')) || 0,
   };
 }
